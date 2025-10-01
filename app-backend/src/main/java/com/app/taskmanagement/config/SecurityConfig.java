@@ -1,3 +1,4 @@
+// app-backend/src/main/java/com/app/taskmanagement/config/SecurityConfig.java
 package com.app.taskmanagement.config;
 
 import com.app.taskmanagement.security.JwtAuthenticationFilter;
@@ -29,15 +30,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(AbstractHttpConfigurer::disable)  // ✅ CSRF disabled
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // ✅ Public endpoints - PHẢI ĐẶT TRƯỚC
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/public/**",
+                                "/api/test/**",        // ✅ Allow ALL test endpoints
                                 "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

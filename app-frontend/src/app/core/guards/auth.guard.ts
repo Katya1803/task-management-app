@@ -1,11 +1,9 @@
 import { inject } from '@angular/core';
 import { Router, CanActivateFn, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { map, take } from 'rxjs/operators';
 
 /**
- * Auth Guard - Protect routes requiring authentication
- * Angular 16+ functional guard style
+ * ✅ Auth Guard - Protect authenticated routes
  */
 export const authGuard: CanActivateFn = (
   route: ActivatedRouteSnapshot,
@@ -14,47 +12,56 @@ export const authGuard: CanActivateFn = (
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  return authService.isAuthenticated$.pipe(
-    take(1),
-    map(isAuthenticated => {
-      if (isAuthenticated) {
-        return true;
-      }
+  // ✅ Check if authenticated
+  if (authService.isAuthenticated()) {
+    return true;
+  }
 
-      // Redirect to login with return URL
-      console.log('Access denied - redirecting to login');
-      router.navigate(['/auth/login'], {
-        queryParams: { returnUrl: state.url }
-      });
-      return false;
-    })
-  );
+  // ✅ Check if still restoring session
+  if (authService.isRestoring()) {
+    console.log('⏳ Session restoration in progress...');
+    return new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        if (authService.isAuthenticated()) {
+          console.log('✅ Session restored - access granted');
+          resolve(true);
+        } else {
+          console.log('❌ Access denied - redirecting to login');
+          router.navigate(['/auth/login'], {
+            queryParams: { returnUrl: state.url }
+          });
+          resolve(false);
+        }
+      }, 500);
+    });
+  }
+
+  // Not authenticated
+  console.log('❌ Access denied - redirecting to login');
+  router.navigate(['/auth/login'], {
+    queryParams: { returnUrl: state.url }
+  });
+  return false;
 };
 
 /**
- * Guest Guard - Redirect authenticated users away from auth pages
+ * ✅ Guest Guard - Redirect authenticated users
  */
 export const guestGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  return authService.isAuthenticated$.pipe(
-    take(1),
-    map(isAuthenticated => {
-      if (!isAuthenticated) {
-        return true;
-      }
+  if (!authService.isAuthenticated()) {
+    return true;
+  }
 
-      // Already logged in, redirect to dashboard
-      console.log('Already authenticated - redirecting to dashboard');
-      router.navigate(['/dashboard']);
-      return false;
-    })
-  );
+  console.log('✅ Already authenticated - redirecting to dashboard');
+  router.navigate(['/dashboard']);
+  return false;
 };
 
 /**
- * Role Guard - Check if user has required role
+ * ✅ Role Guard - Check user permissions
  */
 export const roleGuard = (allowedRoles: string[]): CanActivateFn => {
   return (route: ActivatedRouteSnapshot, state: RouterStateSnapshot) => {
@@ -74,8 +81,7 @@ export const roleGuard = (allowedRoles: string[]): CanActivateFn => {
       return true;
     }
 
-    // User doesn't have permission
-    console.log('Access forbidden - insufficient permissions');
+    console.log('❌ Access forbidden - insufficient permissions');
     router.navigate(['/forbidden']);
     return false;
   };

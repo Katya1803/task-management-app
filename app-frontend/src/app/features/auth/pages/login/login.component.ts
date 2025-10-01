@@ -1,5 +1,4 @@
-// src/app/features/auth/pages/login/login.component.ts
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, AfterViewInit, inject, NgZone, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
@@ -9,8 +8,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
-import { SocialAuthService, GoogleLoginProvider } from '@abacritt/angularx-social-login';
 import { AuthService } from '../../../../core/services/auth.service';
+import { environment } from '../../../../../environments/environment';
+
+declare const google: any;
 
 @Component({
   selector: 'app-login',
@@ -29,127 +30,129 @@ import { AuthService } from '../../../../core/services/auth.service';
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss']
 })
-export class LoginComponent implements OnInit {
+export class LoginComponent implements OnInit, AfterViewInit {
+  // ✅ Signals for component state
+  loading = signal(false);
+  hidePassword = signal(true);
+  errorMessage = signal('');
+  returnUrl = signal('/dashboard');
+
   loginForm!: FormGroup;
-  loading = false;
-  hidePassword = true;
-  errorMessage = '';
-  returnUrl = '/dashboard';
 
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
-  private socialAuthService = inject(SocialAuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private ngZone = inject(NgZone);
 
   ngOnInit(): void {
-    // Get return URL from route parameters or default to '/dashboard'
-    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+    this.returnUrl.set(this.route.snapshot.queryParams['returnUrl'] || '/dashboard');
 
-    // Initialize form
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]]
     });
+  }
 
-    // Listen to Google Sign-In events
-    this.socialAuthService.authState.subscribe({
-      next: (user) => {
-        if (user) {
-          this.handleGoogleLogin(user.idToken);
-        }
-      },
-      error: (error) => {
-        console.error('Google Sign-In error:', error);
-        this.errorMessage = 'Google Sign-In failed. Please try again.';
+  ngAfterViewInit(): void {
+    this.initializeGoogleSignIn();
+  }
+
+  private initializeGoogleSignIn(): void {
+    if (typeof google === 'undefined') {
+      setTimeout(() => this.initializeGoogleSignIn(), 500);
+      return;
+    }
+
+    try {
+      google.accounts.id.initialize({
+        client_id: environment.google.clientId,
+        callback: (response: any) => this.handleGoogleCallback(response),
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+
+      const buttonElement = document.getElementById('google-signin-button');
+      if (buttonElement) {
+        google.accounts.id.renderButton(buttonElement, {
+          theme: 'outline',
+          size: 'large',
+          text: 'signin_with',
+          shape: 'rectangular',
+          logo_alignment: 'left',
+          width: buttonElement.offsetWidth
+        });
+        console.log('✅ Google Sign-In initialized');
       }
+    } catch (error) {
+      console.error('❌ Failed to initialize Google Sign-In:', error);
+      this.errorMessage.set('Failed to load Google Sign-In');
+    }
+  }
+
+  private handleGoogleCallback(response: any): void {
+    this.ngZone.run(() => {
+      if (!response.credential) {
+        this.errorMessage.set('Google Sign-In failed');
+        return;
+      }
+
+      this.loading.set(true);
+      this.errorMessage.set('');
+
+      this.authService.loginWithGoogle(response.credential).subscribe({
+        next: () => {
+          this.loading.set(false);
+          this.router.navigate([this.returnUrl()]);
+        },
+        error: (error) => {
+          this.loading.set(false);
+          this.errorMessage.set('Google login failed: ' + error.message);
+        }
+      });
     });
   }
 
-  /**
-   * Handle local login (email/password)
-   */
   onSubmit(): void {
     if (this.loginForm.invalid) {
       this.markFormGroupTouched(this.loginForm);
       return;
     }
 
-    this.loading = true;
-    this.errorMessage = '';
+    this.loading.set(true);
+    this.errorMessage.set('');
 
     const { email, password } = this.loginForm.value;
 
     this.authService.login({ email, password }).subscribe({
-      next: (response) => {
-        console.log('Login successful:', response);
-        this.router.navigate([this.returnUrl]);
+      next: () => {
+        this.loading.set(false);
+        this.router.navigate([this.returnUrl()]);
       },
       error: (error) => {
-        this.loading = false;
-        this.errorMessage = this.getErrorMessage(error.message);
-        console.error('Login failed:', error);
+        this.loading.set(false);
+        this.errorMessage.set(this.getErrorMessage(error.message));
       }
     });
   }
 
-  /**
-   * Handle Google OAuth2 Login
-   */
-  private handleGoogleLogin(idToken: string): void {
-    this.loading = true;
-    this.errorMessage = '';
-
-    this.authService.loginWithGoogle(idToken).subscribe({
-      next: (response) => {
-        console.log('Google login successful:', response);
-        this.loading = false;
-        this.router.navigate([this.returnUrl]);
-      },
-      error: (error) => {
-        this.loading = false;
-        this.errorMessage = 'Google login failed: ' + error.message;
-        console.error('Google login error:', error);
-      }
-    });
+  togglePasswordVisibility(): void {
+    this.hidePassword.update(value => !value);
   }
 
-  /**
-   * Trigger Google Sign-In manually
-   */
-  loginWithGoogle(): void {
-    this.socialAuthService.signIn(GoogleLoginProvider.PROVIDER_ID);
-  }
-
-  /**
-   * Handle Facebook Login
-   * Note: Facebook SDK needs to be loaded separately
-   */
-  loginWithFacebook(): void {
-    this.errorMessage = 'Facebook login is coming soon!';
-    // TODO: Implement Facebook SDK integration
-    // Similar pattern to Google: Get accessToken -> call authService.loginWithFacebook()
-  }
-
-  /**
-   * Get user-friendly error messages
-   */
   private getErrorMessage(error: string): string {
     if (error.includes('email')) {
-      return 'Email not verified. Please check your inbox for verification code.';
+      return 'Email not verified. Please check your inbox.';
     }
     if (error.includes('credentials') || error.includes('password')) {
-      return 'Invalid email or password. Please try again.';
+      return 'Invalid email or password.';
     }
     if (error.includes('disabled')) {
-      return 'Your account has been disabled. Please contact support.';
+      return 'Account disabled. Please contact support.';
     }
-    return 'Login failed. Please try again later.';
+    return 'Login failed. Please try again.';
   }
 
-  /**
-   * Mark all form fields as touched to show validation errors
-   */
   private markFormGroupTouched(formGroup: FormGroup): void {
     Object.keys(formGroup.controls).forEach(key => {
       const control = formGroup.get(key);
@@ -161,11 +164,10 @@ export class LoginComponent implements OnInit {
     });
   }
 
-  /**
-   * Get form field error message
-   */
   getFieldError(fieldName: string): string {
     const field = this.loginForm.get(fieldName);
+    if (!field?.touched) return '';
+
     if (field?.hasError('required')) {
       return `${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} is required`;
     }
@@ -173,7 +175,7 @@ export class LoginComponent implements OnInit {
       return 'Please enter a valid email';
     }
     if (field?.hasError('minlength')) {
-      return `${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} must be at least 6 characters`;
+      return `Must be at least 6 characters`;
     }
     return '';
   }
