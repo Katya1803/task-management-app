@@ -1,0 +1,66 @@
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+
+  .email-icon-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+
+    .email-icon {
+      font-size: 4rem;
+      width: 4rem;
+      height: 4rem;
+      color: #667eea;
+    }
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  strong {
+    color: #667eea;
+  }
+}
+
+.otp-field {
+  input {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+  }
+}
+
+.resend-section {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+
+  .resend-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0.5rem auto 0;
+    color: #667eea;
+    font-weight: 500;
+
+    mat-icon {
+      font-size: 1.125rem;
+      width: 1.125rem;
+      height: 1.125rem;
+      margin-right: 0.25rem;
+    }
+
+    &:disabled {
+      color: #9ca3af;
+    }
+  }
+}
+
+mat-spinner {
+  margin: 0 auto;
+}
