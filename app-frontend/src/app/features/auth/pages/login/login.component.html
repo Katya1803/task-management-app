@@ -88,6 +88,7 @@
         mat-stroked-button
         class="w-full social-btn facebook-btn"
         [disabled]="loading()"
+        (click)="loginWithFacebook()"
       >
         <mat-icon>facebook</mat-icon>
         Sign in with Facebook

@@ -12,6 +12,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { environment } from '../../../../../environments/environment';
 
 declare const google: any;
+declare const FB: any;
 
 @Component({
   selector: 'app-login',
@@ -56,6 +57,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.initializeGoogleSignIn();
+    this.initializeFacebookSDK();
   }
 
   private initializeGoogleSignIn(): void {
@@ -134,6 +136,50 @@ export class LoginComponent implements OnInit, AfterViewInit {
         this.errorMessage.set(this.getErrorMessage(error.message));
       }
     });
+  }
+
+  private initializeFacebookSDK(): void {
+    if (typeof FB === 'undefined') {
+      setTimeout(() => this.initializeFacebookSDK(), 500);
+      return;
+    }
+    console.log('✅ Facebook SDK initialized');
+  }
+
+  loginWithFacebook(): void {
+    if (typeof FB === 'undefined') {
+      this.errorMessage.set('Facebook SDK not loaded');
+      return;
+    }
+
+    this.loading.set(true);
+    this.errorMessage.set('');
+
+    FB.login((response: any) => {
+      this.ngZone.run(() => {
+        if (response.authResponse) {
+          const accessToken = response.authResponse.accessToken;
+          console.log('✅ Facebook access token received');
+
+          this.authService.loginWithFacebook(accessToken).subscribe({
+            next: () => {
+              this.loading.set(false);
+              console.log('✅ Facebook login successful');
+              this.router.navigate([this.returnUrl()]);
+            },
+            error: (error) => {
+              this.loading.set(false);
+              this.errorMessage.set('Facebook login failed: ' + error.message);
+              console.error('❌ Facebook login error:', error);
+            }
+          });
+        } else {
+          this.loading.set(false);
+          this.errorMessage.set('Facebook login cancelled');
+          console.log('❌ Facebook login cancelled by user');
+        }
+      });
+    }, { scope: 'email,public_profile' });
   }
 
   togglePasswordVisibility(): void {
