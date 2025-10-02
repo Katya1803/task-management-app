@@ -1,4 +1,3 @@
-// src/main/java/com/app/taskmanagement/config/RedisConfig.java
 package com.app.taskmanagement.config;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -20,12 +19,10 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // ✅ Use String serializer for keys
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
         template.setKeySerializer(stringSerializer);
         template.setHashKeySerializer(stringSerializer);
 
-        // ✅ Use Jackson serializer for values
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.activateDefaultTyping(

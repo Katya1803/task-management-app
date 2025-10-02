@@ -19,12 +19,9 @@ public class ApiResponse<T> {
     private Boolean success;
     private String message;
     private LocalDateTime timestamp;
-
     private T data;
-
     private String errorCode;
     private Map<String, String> errors;
-
 
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()

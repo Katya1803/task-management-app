@@ -12,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 
 @Component
 public class JwtUtil {
@@ -23,19 +22,14 @@ public class JwtUtil {
     @Value("${jwt.access-token-expiration}")
     private Long accessTokenExpiration;
 
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-    }
-
     public String generateAccessToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("sub", user.getId().toString());
         claims.put("email", user.getEmail());
         claims.put("role", user.getRole().name());
-        claims.put("publicId", user.getPublicId());
 
         return Jwts.builder()
                 .claims(claims)
+                .subject(String.valueOf(user.getId()))
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
                 .signWith(getSigningKey())
@@ -43,27 +37,23 @@ public class JwtUtil {
     }
 
     public String extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("sub", String.class));
+        return extractClaims(token).getSubject();
     }
 
     public String extractEmail(String token) {
-        return extractClaim(token, claims -> claims.get("email", String.class));
+        return extractClaims(token).get("email", String.class);
     }
 
-    public String extractRole(String token) {
-        return extractClaim(token, claims -> claims.get("role", String.class));
+    public boolean validateToken(String token) {
+        try {
+            extractClaims(token);
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    public Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    private Claims extractAllClaims(String token) {
+    private Claims extractClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
@@ -71,20 +61,12 @@ public class JwtUtil {
                 .getPayload();
     }
 
-    public boolean isTokenExpired(String token) {
-        try {
-            return extractExpiration(token).before(new Date());
-        } catch (Exception e) {
-            return true;
-        }
+    private boolean isTokenExpired(String token) {
+        return extractClaims(token).getExpiration().before(new Date());
     }
 
-    public boolean validateToken(String token) {
-        try {
-            extractAllClaims(token);
-            return !isTokenExpired(token);
-        } catch (Exception e) {
-            return false;
-        }
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

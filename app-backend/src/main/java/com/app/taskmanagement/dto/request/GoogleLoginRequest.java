@@ -1,18 +1,18 @@
 package com.app.taskmanagement.dto.request;
 
+import com.app.taskmanagement.constant.ValidationMessages;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Google Login Request
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class GoogleLoginRequest {
-    @NotBlank(message = "ID token is required")
+
+    @NotBlank(message = ValidationMessages.TOKEN_REQUIRED)
     private String idToken;
 }
-

@@ -1,5 +1,6 @@
 package com.app.taskmanagement.security;
 
+import com.app.taskmanagement.constant.SecurityConstants;
 import com.app.taskmanagement.model.User;
 import com.app.taskmanagement.repository.UserRepository;
 import jakarta.servlet.FilterChain;
@@ -32,15 +33,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        final String authHeader = request.getHeader(SecurityConstants.AUTHORIZATION_HEADER);
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null || !authHeader.startsWith(SecurityConstants.TOKEN_PREFIX)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            final String jwt = authHeader.substring(7);
+            final String jwt = authHeader.substring(SecurityConstants.TOKEN_PREFIX_LENGTH);
             final String userId = jwtUtil.extractUserId(jwt);
 
             if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -61,7 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            // Token invalid, continue without authentication
+            logger.error(e.getMessage());
         }
 
         filterChain.doFilter(request, response);

@@ -1,5 +1,6 @@
 package com.app.taskmanagement.dto.request;
 
+import com.app.taskmanagement.constant.ValidationMessages;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -7,13 +8,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Resend OTP Request
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResendOtpRequest {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
+
+    @NotBlank(message = ValidationMessages.EMAIL_REQUIRED)
+    @Email(message = ValidationMessages.EMAIL_INVALID)
     private String email;
 }

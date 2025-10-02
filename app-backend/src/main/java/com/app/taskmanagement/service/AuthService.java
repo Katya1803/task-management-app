@@ -1,12 +1,15 @@
-// src/main/java/com/app/taskmanagement/service/AuthService.java
 package com.app.taskmanagement.service;
 
+import com.app.taskmanagement.constant.ErrorCode;
+import com.app.taskmanagement.constant.SecurityConstants;
 import com.app.taskmanagement.dto.request.LoginRequest;
 import com.app.taskmanagement.dto.request.RegisterRequest;
 import com.app.taskmanagement.dto.request.VerifyOtpRequest;
 import com.app.taskmanagement.dto.response.AuthResponse;
 import com.app.taskmanagement.dto.response.UserDto;
-import com.app.taskmanagement.exception.*;
+import com.app.taskmanagement.exception.ApplicationException;
+import com.app.taskmanagement.mapper.AuthMapper;
+import com.app.taskmanagement.mapper.UserMapper;
 import com.app.taskmanagement.model.User;
 import com.app.taskmanagement.repository.UserRepository;
 import com.app.taskmanagement.security.JwtUtil;
@@ -20,6 +23,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -29,24 +35,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
-
-    // ✅ Redis services
     private final OtpRedisService otpRedisService;
     private final RefreshTokenRedisService refreshTokenRedisService;
+    private final UserMapper userMapper;
+    private final AuthMapper authMapper;
 
     @Value("${jwt.access-token-expiration}")
     private Long accessTokenExpiration;
 
-    // ==================== REGISTRATION ====================
-
     @Transactional
     public void register(RegisterRequest request) {
-        // Check if email already exists
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException(request.getEmail());
+            throw new ApplicationException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
-        // Create user (not verified yet)
         User user = User.builder()
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
@@ -59,196 +61,154 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
-        log.info("✅ User registered: {}", user.getEmail());
+        log.info("User registered: {}", user.getEmail());
 
-        // Send OTP via Redis
         sendVerificationOtp(request.getEmail());
     }
-
-    // ==================== OTP VERIFICATION ====================
 
     @Transactional
     public void sendVerificationOtp(String email) {
         try {
-            // Generate and save OTP in Redis (with rate limiting)
             String otp = otpRedisService.generateAndSaveOtp(email);
-
-            // Send email
             emailService.sendOtpEmail(email, otp);
-
-            log.info("✅ OTP sent to: {}", email);
+            log.info("OTP sent to: {}", email);
+        } catch (ApplicationException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("❌ Failed to send OTP: {}", email, e);
-            throw new RuntimeException("Failed to send verification code. " + e.getMessage());
+            log.error("Failed to send OTP: {}", email, e);
+            throw new ApplicationException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
     @Transactional
     public void verifyEmail(VerifyOtpRequest request) {
-        // Verify OTP from Redis
         boolean isValid = otpRedisService.verifyOtp(request.getEmail(), request.getOtp());
 
         if (!isValid) {
-            throw new InvalidOtpException();
+            throw new ApplicationException(ErrorCode.INVALID_OTP);
         }
 
-        // Update user
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(UserNotFoundException::new);
+                .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
 
         user.setEmailVerified(true);
         userRepository.save(user);
 
-        // Send welcome email
         emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
-
-        log.info("✅ Email verified successfully: {}", user.getEmail());
+        log.info("Email verified successfully: {}", user.getEmail());
     }
-
-    // ==================== LOGIN ====================
 
     @Transactional
     public AuthResponse login(LoginRequest request,
                               HttpServletRequest httpRequest,
                               HttpServletResponse httpResponse) {
-        // Find user
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(InvalidCredentialsException::new);
+                .orElseThrow(() -> new ApplicationException(ErrorCode.INVALID_CREDENTIALS));
 
-        // Verify password
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new InvalidCredentialsException();
+            throw new ApplicationException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        // Check if email verified
         if (!user.getEmailVerified()) {
-            throw new EmailNotVerifiedException();
+            throw new ApplicationException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        // Check if active
         if (!user.getIsActive()) {
-            throw new AccountDisabledException();
+            throw new ApplicationException(ErrorCode.ACCOUNT_DISABLED);
         }
 
-        // Generate tokens
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
+
         String accessToken = jwtUtil.generateAccessToken(user);
         String refreshToken = refreshTokenRedisService.createRefreshToken(user, httpRequest);
 
-        // Set refresh token in cookie
         setRefreshTokenCookie(httpResponse, refreshToken);
 
-        log.info("✅ User logged in: {}", user.getEmail());
+        UserDto userDto = userMapper.toDto(user);
+        log.info("User logged in: {}", user.getEmail());
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .tokenType("Bearer")
-                .expiresIn(accessTokenExpiration / 1000)
-                .user(mapToUserDto(user))
-                .build();
+        return authMapper.toAuthResponse(accessToken, accessTokenExpiration, userDto);
     }
 
-    // ==================== TOKEN REFRESH ====================
-
     @Transactional
-    public AuthResponse refreshAccessToken(HttpServletRequest request,
-                                           HttpServletResponse response) {
-        // Get refresh token from cookie
+    public AuthResponse refreshAccessToken(HttpServletRequest request, HttpServletResponse response) {
         String refreshToken = extractRefreshTokenFromCookie(request);
+
         if (refreshToken == null) {
-            throw new InvalidTokenException();
+            throw new ApplicationException(ErrorCode.INVALID_TOKEN);
         }
 
-        // Validate refresh token from Redis
-        Long userId = refreshTokenRedisService.validateAndGetUserId(refreshToken);
-        if (userId == null) {
-            throw new InvalidTokenException();
+        Map<String, Object> tokenData = refreshTokenRedisService.getRefreshTokenData(refreshToken);
+
+        if (tokenData == null) {
+            throw new ApplicationException(ErrorCode.INVALID_TOKEN);
         }
 
-        // Load user
+        Object userIdObj = tokenData.get("userId");
+        if (userIdObj == null) {
+            throw new ApplicationException(ErrorCode.INVALID_TOKEN);
+        }
+
+        Long userId = Long.valueOf(userIdObj.toString());
         User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+                .orElseThrow(() -> new ApplicationException(ErrorCode.USER_NOT_FOUND));
 
         if (!user.getIsActive()) {
-            throw new AccountDisabledException();
+            throw new ApplicationException(ErrorCode.ACCOUNT_DISABLED);
         }
 
-        // Rotate refresh token
-        String newRefreshToken = refreshTokenRedisService.rotateRefreshToken(
-                refreshToken, user, request
-        );
+        refreshTokenRedisService.revokeToken(refreshToken);
 
-        // Generate new access token
         String newAccessToken = jwtUtil.generateAccessToken(user);
+        String newRefreshToken = refreshTokenRedisService.createRefreshToken(user, request);
 
-        // Set new refresh token in cookie
         setRefreshTokenCookie(response, newRefreshToken);
 
-        log.info("✅ Tokens refreshed for user: {}", user.getEmail());
+        UserDto userDto = userMapper.toDto(user);
+        log.info("Access token refreshed for user: {}", user.getEmail());
 
-        return AuthResponse.builder()
-                .accessToken(newAccessToken)
-                .tokenType("Bearer")
-                .expiresIn(accessTokenExpiration / 1000)
-                .user(mapToUserDto(user))
-                .build();
+        return authMapper.toAuthResponse(newAccessToken, accessTokenExpiration, userDto);
     }
 
-    // ==================== LOGOUT ====================
-
-    @Transactional
     public void logout(HttpServletRequest request, HttpServletResponse response) {
         String refreshToken = extractRefreshTokenFromCookie(request);
 
         if (refreshToken != null) {
-            // Revoke refresh token from Redis
             refreshTokenRedisService.revokeToken(refreshToken);
         }
 
-        // Clear cookie
         clearRefreshTokenCookie(response);
-
-        log.info("✅ User logged out");
+        log.info("User logged out");
     }
 
-    // ==================== HELPER METHODS ====================
+    private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
+        Cookie cookie = new Cookie(SecurityConstants.REFRESH_TOKEN_COOKIE, refreshToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath(SecurityConstants.COOKIE_PATH);
+        cookie.setMaxAge(SecurityConstants.COOKIE_MAX_AGE_SECONDS);
+        response.addCookie(cookie);
+    }
+
+    private void clearRefreshTokenCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie(SecurityConstants.REFRESH_TOKEN_COOKIE, "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath(SecurityConstants.COOKIE_PATH);
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+    }
 
     private String extractRefreshTokenFromCookie(HttpServletRequest request) {
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("refreshToken".equals(cookie.getName())) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (SecurityConstants.REFRESH_TOKEN_COOKIE.equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
         }
         return null;
-    }
-
-    private void setRefreshTokenCookie(HttpServletResponse response, String token) {
-        Cookie cookie = new Cookie("refreshToken", token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // Set to true in production with HTTPS
-        cookie.setPath("/");
-        cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-        response.addCookie(cookie);
-    }
-
-    private void clearRefreshTokenCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie("refreshToken", null);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
-    }
-
-    private UserDto mapToUserDto(User user) {
-        return UserDto.builder()
-                .publicId(user.getPublicId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .role(user.getRole().name())
-                .authProvider(user.getAuthProvider().name())
-                .emailVerified(user.getEmailVerified())
-                .build();
     }
 }

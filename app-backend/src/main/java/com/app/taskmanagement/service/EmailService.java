@@ -1,5 +1,6 @@
 package com.app.taskmanagement.service;
 
+import com.app.taskmanagement.constant.MessageConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,14 +25,29 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(toEmail);
-            message.setSubject("Email Verification - Task Management App");
+            message.setSubject(MessageConstants.OTP_EMAIL_SUBJECT);
             message.setText(buildOtpEmailBody(otp));
 
             mailSender.send(message);
             log.info("OTP email sent successfully to: {}", toEmail);
         } catch (Exception e) {
             log.error("Failed to send OTP email to: {}", toEmail, e);
-            // In production, might want to retry or use a queue
+        }
+    }
+
+    @Async
+    public void sendWelcomeEmail(String toEmail, String fullName) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(toEmail);
+            message.setSubject(MessageConstants.WELCOME_EMAIL_SUBJECT);
+            message.setText(buildWelcomeEmailBody(fullName));
+
+            mailSender.send(message);
+            log.info("Welcome email sent successfully to: {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send welcome email to: {}", toEmail, e);
         }
     }
 
@@ -46,24 +62,8 @@ public class EmailService {
             If you didn't request this code, please ignore this email.
             
             Best regards,
-            Task Management Team
-            """, otp);
-    }
-
-    @Async
-    public void sendWelcomeEmail(String toEmail, String fullName) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
-            message.setTo(toEmail);
-            message.setSubject("Welcome to Task Management App!");
-            message.setText(buildWelcomeEmailBody(fullName));
-
-            mailSender.send(message);
-            log.info("Welcome email sent successfully to: {}", toEmail);
-        } catch (Exception e) {
-            log.error("Failed to send welcome email to: {}", toEmail, e);
-        }
+            %s
+            """, otp, MessageConstants.EMAIL_FROM_NAME);
     }
 
     private String buildWelcomeEmailBody(String fullName) {
@@ -75,7 +75,7 @@ public class EmailService {
             You can now start managing your tasks efficiently.
             
             Best regards,
-            Task Management Team
-            """, fullName);
+            %s
+            """, fullName, MessageConstants.EMAIL_FROM_NAME);
     }
 }

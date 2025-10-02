@@ -3,12 +3,14 @@ package com.app.taskmanagement.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_user_email", columnList = "email"),
-        @Index(name = "idx_user_public_id", columnList = "public_id")
+        @Index(name = "idx_user_email", columnList = "email", unique = true),
+        @Index(name = "idx_user_public_id", columnList = "public_id", unique = true),
+        @Index(name = "idx_user_provider", columnList = "auth_provider, provider_id")
 })
 @Getter
 @Setter
@@ -21,16 +23,16 @@ public class User extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "public_id", unique = true, nullable = false, updatable = false)
+    @Column(name = "public_id", nullable = false, unique = true, updatable = false, length = 36)
     private String publicId;
 
-    @Column(unique = true, nullable = false, length = 100)
+    @Column(nullable = false, unique = true, length = 100)
     private String email;
 
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
-    @Column(name = "full_name", length = 100)
+    @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 
     @Enumerated(EnumType.STRING)
@@ -43,7 +45,7 @@ public class User extends BaseEntity {
     @Builder.Default
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
-    @Column(name = "provider_id", length = 255)
+    @Column(name = "provider_id", length = 100)
     private String providerId;
 
     @Column(name = "email_verified", nullable = false)
@@ -58,6 +60,12 @@ public class User extends BaseEntity {
     @Builder.Default
     private Boolean mfaEnabled = false;
 
+    @Column(name = "mfa_secret", length = 32)
+    private String mfaSecret;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
     @PrePersist
     protected void onCreate() {
         if (publicId == null) {
@@ -66,13 +74,10 @@ public class User extends BaseEntity {
     }
 
     public enum Role {
-        USER,
-        ADMIN
+        USER, ADMIN
     }
 
     public enum AuthProvider {
-        LOCAL,
-        GOOGLE,
-        FACEBOOK
+        LOCAL, GOOGLE, FACEBOOK
     }
 }

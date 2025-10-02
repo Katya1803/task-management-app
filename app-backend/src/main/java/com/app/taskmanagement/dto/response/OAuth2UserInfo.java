@@ -16,4 +16,5 @@ public class OAuth2UserInfo {
     private String fullName;
     private Boolean emailVerified;
     private String provider; // GOOGLE or FACEBOOK
+
 }

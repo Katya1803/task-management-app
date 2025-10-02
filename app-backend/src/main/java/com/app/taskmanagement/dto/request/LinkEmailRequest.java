@@ -1,5 +1,6 @@
 package com.app.taskmanagement.dto.request;
 
+import com.app.taskmanagement.constant.ValidationMessages;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -7,19 +8,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// Link Email Request (for Facebook without email)
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class LinkEmailRequest {
-    @NotBlank(message = "Provider ID is required")
+
+    @NotBlank(message = ValidationMessages.PROVIDER_ID_REQUIRED)
     private String providerId;
 
-    @NotBlank(message = "Provider is required")
-    private String provider; // GOOGLE or FACEBOOK
+    @NotBlank(message = ValidationMessages.PROVIDER_REQUIRED)
+    private String provider;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
+    @NotBlank(message = ValidationMessages.EMAIL_REQUIRED)
+    @Email(message = ValidationMessages.EMAIL_INVALID)
     private String email;
 }

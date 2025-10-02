@@ -1,6 +1,9 @@
 package com.app.taskmanagement.controller;
 
+import com.app.taskmanagement.constant.ApiPath;
+import com.app.taskmanagement.constant.MessageConstants;
 import com.app.taskmanagement.dto.request.*;
+import com.app.taskmanagement.dto.response.ApiResponse;
 import com.app.taskmanagement.dto.response.AuthResponse;
 import com.app.taskmanagement.service.AuthService;
 import com.app.taskmanagement.service.OAuth2Service;
@@ -15,130 +18,109 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping(ApiPath.Auth.BASE)
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
     private final OAuth2Service oauth2Service;
 
-    @GetMapping("/health")
-    public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(
-                Map.of(
-                        "status", "UP",
-                        "service", "Authentication Service"
-                )
+    @GetMapping(ApiPath.Auth.HEALTH)
+    public ResponseEntity<ApiResponse<Map<String, String>>> health() {
+        Map<String, String> data = Map.of(
+                "status", "UP",
+                "service", "Authentication Service"
         );
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
-    // ==================== LOCAL AUTHENTICATION ====================
-
-    @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegisterRequest request) {
+    @PostMapping(ApiPath.Auth.REGISTER)
+    public ResponseEntity<ApiResponse<Map<String, String>>> register(
+            @Valid @RequestBody RegisterRequest request) {
         authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                Map.of(
-                        "message", "Registration successful. Please check your email for verification code.",
-                        "email", request.getEmail()
-                )
-        );
+        Map<String, String> data = Map.of("email", request.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(MessageConstants.REGISTRATION_SUCCESS, data));
     }
 
-    @PostMapping("/verify-email")
-    public ResponseEntity<Map<String, String>> verifyEmail(@Valid @RequestBody VerifyOtpRequest request) {
+    @PostMapping(ApiPath.Auth.VERIFY_EMAIL)
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(
+            @Valid @RequestBody VerifyOtpRequest request) {
         authService.verifyEmail(request);
-        return ResponseEntity.ok(
-                Map.of("message", "Email verified successfully. You can now login.")
-        );
+        return ResponseEntity.ok(ApiResponse.success(MessageConstants.EMAIL_VERIFIED));
     }
 
-    @PostMapping("/resend-otp")
-    public ResponseEntity<Map<String, String>> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+    @PostMapping(ApiPath.Auth.RESEND_OTP)
+    public ResponseEntity<ApiResponse<Map<String, String>>> resendOtp(
+            @Valid @RequestBody ResendOtpRequest request) {
         authService.sendVerificationOtp(request.getEmail());
-        return ResponseEntity.ok(
-                Map.of(
-                        "message", "Verification code sent successfully.",
-                        "email", request.getEmail()
-                )
-        );
+        Map<String, String> data = Map.of("email", request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(MessageConstants.OTP_SENT, data));
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(
+    @PostMapping(ApiPath.Auth.LOGIN)
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse
-    ) {
-        AuthResponse response = authService.login(request, httpRequest, httpResponse);
-        return ResponseEntity.ok(response);
+            HttpServletResponse httpResponse) {
+        AuthResponse authResponse = authService.login(request, httpRequest, httpResponse);
+        return ResponseEntity.ok(ApiResponse.success(authResponse));
     }
 
-    // ==================== OAUTH2 AUTHENTICATION ====================
-
-    @PostMapping("/google")
-    public ResponseEntity<AuthResponse> loginWithGoogle(
+    @PostMapping(ApiPath.Auth.GOOGLE)
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(
             @Valid @RequestBody GoogleLoginRequest request,
             HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse
-    ) {
-        AuthResponse response = oauth2Service.loginWithGoogle(
+            HttpServletResponse httpResponse) {
+        AuthResponse authResponse = oauth2Service.loginWithGoogle(
                 request.getIdToken(),
                 httpRequest,
                 httpResponse
         );
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(authResponse));
     }
 
-    @PostMapping("/facebook")
-    public ResponseEntity<AuthResponse> loginWithFacebook(
+    @PostMapping(ApiPath.Auth.FACEBOOK)
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithFacebook(
             @Valid @RequestBody FacebookLoginRequest request,
             HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse
-    ) {
-        AuthResponse response = oauth2Service.loginWithFacebook(
+            HttpServletResponse httpResponse) {
+        AuthResponse authResponse = oauth2Service.loginWithFacebook(
                 request.getAccessToken(),
                 httpRequest,
                 httpResponse
         );
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(authResponse));
     }
 
-    @PostMapping("/link-email")
-    public ResponseEntity<AuthResponse> linkEmail(
+    @PostMapping(ApiPath.Auth.LINK_EMAIL)
+    public ResponseEntity<ApiResponse<AuthResponse>> linkEmail(
             @Valid @RequestBody LinkEmailRequest request,
             HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse
-    ) {
-        AuthResponse response = oauth2Service.linkEmailToProvider(
+            HttpServletResponse httpResponse) {
+        AuthResponse authResponse = oauth2Service.linkEmailToProvider(
                 request.getProviderId(),
                 request.getProvider(),
                 request.getEmail(),
                 httpRequest,
                 httpResponse
         );
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(authResponse));
     }
 
-    // ==================== TOKEN MANAGEMENT ====================
-
-    @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(
+    @PostMapping(ApiPath.Auth.REFRESH)
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
             HttpServletRequest request,
-            HttpServletResponse response
-    ) {
+            HttpServletResponse response) {
         AuthResponse authResponse = authService.refreshAccessToken(request, response);
-        return ResponseEntity.ok(authResponse);
+        return ResponseEntity.ok(ApiResponse.success(authResponse));
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(
+    @PostMapping(ApiPath.Auth.LOGOUT)
+    public ResponseEntity<ApiResponse<Void>> logout(
             HttpServletRequest request,
-            HttpServletResponse response
-    ) {
+            HttpServletResponse response) {
         authService.logout(request, response);
-        return ResponseEntity.ok(
-                Map.of("message", "Logged out successfully")
-        );
+        return ResponseEntity.ok(ApiResponse.success(MessageConstants.LOGOUT_SUCCESS));
     }
 }

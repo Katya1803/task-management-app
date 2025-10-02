@@ -1,6 +1,6 @@
-// src/main/java/com/app/taskmanagement/service/RefreshTokenRedisService.java
 package com.app.taskmanagement.service;
 
+import com.app.taskmanagement.constant.SecurityConstants;
 import com.app.taskmanagement.model.User;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -24,191 +24,93 @@ public class RefreshTokenRedisService {
     private final RedisTemplate<String, Object> redisTemplate;
 
     @Value("${jwt.refresh-token-expiration}")
-    private Long refreshTokenExpiration; // 604800000ms = 7 days
+    private Long refreshTokenExpiration;
 
-    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
-    private static final String USER_TOKENS_PREFIX = "user_tokens:";
-
-    /**
-     * Create refresh token in Redis
-     */
     public String createRefreshToken(User user, HttpServletRequest request) {
         String token = UUID.randomUUID().toString();
-        String key = REFRESH_TOKEN_PREFIX + token;
+        String key = SecurityConstants.REFRESH_TOKEN_PREFIX + token;
         String deviceId = extractDeviceId(request);
 
-        // Check and revoke existing token for this device
         revokeTokenByDeviceId(user.getId(), deviceId);
 
-        // Store token data in Redis Hash
         Map<String, Object> tokenData = new HashMap<>();
-        tokenData.put("userId", user.getId().toString());
+        tokenData.put("userId", user.getId());
         tokenData.put("email", user.getEmail());
         tokenData.put("deviceId", deviceId);
-        tokenData.put("ipAddress", extractIpAddress(request));
-        tokenData.put("userAgent", extractUserAgent(request));
         tokenData.put("createdAt", LocalDateTime.now().toString());
 
-        // Save token data
         redisTemplate.opsForHash().putAll(key, tokenData);
-
-        // Set TTL (auto-expiration after 7 days)
         redisTemplate.expire(key, refreshTokenExpiration, TimeUnit.MILLISECONDS);
 
-        // Track user's active tokens
-        String userTokensKey = USER_TOKENS_PREFIX + user.getId();
+        String userTokensKey = SecurityConstants.USER_TOKENS_PREFIX + user.getId();
         redisTemplate.opsForSet().add(userTokensKey, token);
-        redisTemplate.expire(userTokensKey, refreshTokenExpiration, TimeUnit.MILLISECONDS);
 
-        log.info("✅ Refresh token created in Redis: {} (user: {}, device: {})",
-                token, user.getId(), deviceId);
-
+        log.info("Refresh token created for user: {}", user.getEmail());
         return token;
     }
 
-    /**
-     * Validate refresh token and return user ID
-     */
-    public Long validateAndGetUserId(String token) {
-        String key = REFRESH_TOKEN_PREFIX + token;
+    public Map<String, Object> getRefreshTokenData(String token) {
+        String key = SecurityConstants.REFRESH_TOKEN_PREFIX + token;
+        Map<Object, Object> rawData = redisTemplate.opsForHash().entries(key);
 
-        // Check if token exists
-        if (!Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
-            log.warn("❌ Refresh token not found or expired: {}", token);
+        if (rawData.isEmpty()) {
             return null;
         }
 
-        // Get user ID
-        String userIdStr = (String) redisTemplate.opsForHash().get(key, "userId");
-
-        if (userIdStr == null) {
-            log.warn("❌ Invalid refresh token data: {}", token);
-            return null;
-        }
-
-        log.debug("✅ Refresh token validated: {}", token);
-        return Long.parseLong(userIdStr);
+        Map<String, Object> tokenData = new HashMap<>();
+        rawData.forEach((k, v) -> tokenData.put(k.toString(), v));
+        return tokenData;
     }
 
-    /**
-     * Get token metadata
-     */
-    public Map<Object, Object> getTokenData(String token) {
-        String key = REFRESH_TOKEN_PREFIX + token;
-        return redisTemplate.opsForHash().entries(key);
-    }
-
-    /**
-     * Rotate refresh token (revoke old, create new)
-     */
-    public String rotateRefreshToken(String oldToken, User user, HttpServletRequest request) {
-        // Revoke old token
-        revokeToken(oldToken);
-
-        // Create new token
-        return createRefreshToken(user, request);
-    }
-
-    /**
-     * Revoke single refresh token
-     */
     public void revokeToken(String token) {
-        String key = REFRESH_TOKEN_PREFIX + token;
+        String key = SecurityConstants.REFRESH_TOKEN_PREFIX + token;
+        Map<String, Object> tokenData = getRefreshTokenData(token);
 
-        // Get userId before deleting
-        String userIdStr = (String) redisTemplate.opsForHash().get(key, "userId");
+        if (tokenData != null) {
+            Object userIdObj = tokenData.get("userId");
+            if (userIdObj != null) {
+                Long userId = Long.valueOf(userIdObj.toString());
+                String userTokensKey = SecurityConstants.USER_TOKENS_PREFIX + userId;
+                redisTemplate.opsForSet().remove(userTokensKey, token);
+            }
+        }
 
-        // Delete token
         redisTemplate.delete(key);
-
-        // Remove from user's token set
-        if (userIdStr != null) {
-            String userTokensKey = USER_TOKENS_PREFIX + userIdStr;
-            redisTemplate.opsForSet().remove(userTokensKey, token);
-        }
-
-        log.info("🗑️ Refresh token revoked: {}", token);
+        log.info("Refresh token revoked");
     }
 
-    /**
-     * Revoke all refresh tokens for user
-     */
     public void revokeAllUserTokens(Long userId) {
-        String userTokensKey = USER_TOKENS_PREFIX + userId;
-
-        // Get all user's tokens
-        Set<Object> tokens = redisTemplate.opsForSet().members(userTokensKey);
-
-        if (tokens != null && !tokens.isEmpty()) {
-            // Delete each token
-            tokens.forEach(token -> {
-                String key = REFRESH_TOKEN_PREFIX + token;
-                redisTemplate.delete(key);
-            });
-
-            // Delete user tokens set
-            redisTemplate.delete(userTokensKey);
-
-            log.info("🗑️ All refresh tokens revoked for user: {} (count: {})",
-                    userId, tokens.size());
-        }
-    }
-
-    /**
-     * Revoke token by device ID
-     */
-    private void revokeTokenByDeviceId(Long userId, String deviceId) {
-        String userTokensKey = USER_TOKENS_PREFIX + userId;
+        String userTokensKey = SecurityConstants.USER_TOKENS_PREFIX + userId;
         Set<Object> tokens = redisTemplate.opsForSet().members(userTokensKey);
 
         if (tokens != null) {
             tokens.forEach(token -> {
-                String key = REFRESH_TOKEN_PREFIX + token;
-                String tokenDeviceId = (String) redisTemplate.opsForHash().get(key, "deviceId");
+                String key = SecurityConstants.REFRESH_TOKEN_PREFIX + token.toString();
+                redisTemplate.delete(key);
+            });
+        }
 
-                if (deviceId.equals(tokenDeviceId)) {
-                    redisTemplate.delete(key);
-                    redisTemplate.opsForSet().remove(userTokensKey, token);
-                    log.info("🗑️ Previous token revoked for device: {}", deviceId);
+        redisTemplate.delete(userTokensKey);
+        log.info("All refresh tokens revoked for user: {}", userId);
+    }
+
+    private void revokeTokenByDeviceId(Long userId, String deviceId) {
+        String userTokensKey = SecurityConstants.USER_TOKENS_PREFIX + userId;
+        Set<Object> tokens = redisTemplate.opsForSet().members(userTokensKey);
+
+        if (tokens != null) {
+            tokens.forEach(token -> {
+                Map<String, Object> tokenData = getRefreshTokenData(token.toString());
+                if (tokenData != null && deviceId.equals(tokenData.get("deviceId"))) {
+                    revokeToken(token.toString());
                 }
             });
         }
     }
 
-    /**
-     * Get active tokens count for user
-     */
-    public long getActiveTokensCount(Long userId) {
-        String userTokensKey = USER_TOKENS_PREFIX + userId;
-        Long count = redisTemplate.opsForSet().size(userTokensKey);
-        return count != null ? count : 0;
-    }
-
-    /**
-     * Get all active tokens for user (for device management)
-     */
-    public Set<Object> getUserActiveTokens(Long userId) {
-        String userTokensKey = USER_TOKENS_PREFIX + userId;
-        return redisTemplate.opsForSet().members(userTokensKey);
-    }
-
-    // ==================== HELPER METHODS ====================
-
     private String extractDeviceId(HttpServletRequest request) {
         String userAgent = request.getHeader("User-Agent");
-        return userAgent != null ? String.valueOf(userAgent.hashCode()) : "unknown";
-    }
-
-    private String extractIpAddress(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isEmpty()) {
-            return xff.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
-
-    private String extractUserAgent(HttpServletRequest request) {
-        String userAgent = request.getHeader("User-Agent");
-        return userAgent != null ? userAgent : "Unknown";
+        String ipAddress = request.getRemoteAddr();
+        return (userAgent != null ? userAgent : "unknown") + "_" + (ipAddress != null ? ipAddress : "unknown");
     }
 }
