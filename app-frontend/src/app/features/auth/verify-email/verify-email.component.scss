@@ -1,0 +1,20 @@
+.email-avatar {
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%) !important;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.email-display {
+  font-weight: 600;
+  color: #1976D2 !important;
+  margin-top: 0.5rem;
+}
+
+.countdown {
+  color: #6B7280;
+  font-weight: 500;
+}

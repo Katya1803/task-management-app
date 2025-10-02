@@ -1,0 +1,93 @@
+<div class="auth-container">
+  <div class="auth-card">
+
+    <!-- ==================== HEADER ==================== -->
+    <div class="auth-header">
+      <div class="auth-avatar email-avatar">
+        <mat-icon>email</mat-icon>
+      </div>
+      <h1>Verify email address</h1>
+      <p>Enter OTP sent to your email</p>
+      @if (email()) {
+        <p class="email-display">{{ email() }}</p>
+      }
+    </div>
+
+    <!-- ==================== SUCCESS MESSAGE ==================== -->
+    @if (successMessage()) {
+      <div class="alert alert-success" role="alert">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ successMessage() }}</span>
+      </div>
+    }
+
+    <!-- ==================== ERROR MESSAGE ==================== -->
+    @if (errorMessage()) {
+      <div class="alert alert-error" role="alert">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <!-- ==================== OTP INPUT ==================== -->
+    <div class="otp-container">
+      @for (digit of otpDigits(); track $index) {
+        <input
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]"
+          maxlength="1"
+          class="otp-input"
+          [class.filled]="digit !== ''"
+          [class.error]="errorMessage()"
+          [id]="'otp-' + $index"
+          [value]="digit"
+          (input)="onOtpInput($event, $index)"
+          (keydown)="onOtpKeydown($event, $index)"
+          [disabled]="loading()"
+        />
+      }
+    </div>
+
+    <!-- ==================== VERIFY BUTTON ==================== -->
+    <button
+      mat-raised-button
+      type="button"
+      class="btn-primary"
+      [disabled]="loading() || !isOtpComplete()"      (click)="verifyOtp()"
+    >
+      @if (!loading()) {
+        <span>Verify Now</span>
+      } @else {
+        <mat-spinner diameter="24"></mat-spinner>
+      }
+    </button>
+
+    <!-- ==================== RESEND LINK ==================== -->
+    <div class="resend-link">
+      <p>
+        Still not received?
+        @if (canResend()) {
+          <a (click)="resendOtp()" [class.disabled]="resending()">
+            @if (!resending()) {
+              <span>Resend</span>
+            } @else {
+              <span>Sending...</span>
+            }
+          </a>
+        } @else {
+          <span class="countdown">Resend in {{ countdown() }}s</span>
+        }
+      </p>
+    </div>
+
+    <!-- ==================== FOOTER ==================== -->
+    <div class="auth-footer">
+      <p>
+        Wrong email?
+        <a routerLink="/auth/register">Register again</a>
+      </p>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,155 @@
+<div class="auth-container">
+  <div class="auth-card">
+
+    <!-- ==================== HEADER ==================== -->
+    <div class="auth-header">
+      <div class="auth-avatar">
+        <!-- Angular Logo SVG -->
+        <svg viewBox="0 0 250 250">
+          <polygon fill="#FFF" points="125,30 125,30 125,30 31.9,63.2 46.1,186.3 125,230 125,230 125,230 203.9,186.3 218.1,63.2"/>
+          <polygon fill="#FFF" points="125,30 125,52.2 125,52.1 125,153.4 125,153.4 125,230 125,230 203.9,186.3 218.1,63.2 125,30"/>
+          <path fill="#DD0031" d="M125,52.1L66.8,182.6h0h21.7h0l11.7-29.2h49.4l11.7,29.2h0h21.7h0L125,52.1L125,52.1L125,52.1L125,52.1 L125,52.1z M142,135.4H108l17-40.9L142,135.4z"/>
+        </svg>
+      </div>
+      <h1>Sign Up to Task Manager</h1>
+      <p>
+        Already have an account?
+        <a routerLink="/auth/login">Login</a>
+      </p>
+    </div>
+
+    <!-- ==================== SUCCESS MESSAGE ==================== -->
+    @if (successMessage()) {
+      <div class="alert alert-success" role="alert">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ successMessage() }}</span>
+      </div>
+    }
+
+    <!-- ==================== ERROR MESSAGE ==================== -->
+    @if (errorMessage()) {
+      <div class="alert alert-error" role="alert">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <!-- ==================== REGISTER FORM ==================== -->
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form">
+
+      <!-- Full Name Field -->
+      <mat-form-field appearance="outline">
+        <mat-label>Username</mat-label>
+        <input
+          matInput
+          type="text"
+          formControlName="fullName"
+          placeholder="John Doe"
+          autocomplete="name"
+        />
+        <mat-icon matPrefix>person</mat-icon>
+        <mat-error>
+          {{ getFieldError('fullName') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Email Field -->
+      <mat-form-field appearance="outline">
+        <mat-label>Email Address</mat-label>
+        <input
+          matInput
+          type="email"
+          formControlName="email"
+          placeholder="your@email.com"
+          autocomplete="email"
+        />
+        <mat-icon matPrefix>email</mat-icon>
+        <mat-error>
+          {{ getFieldError('email') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Password Field -->
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input
+          matInput
+          [type]="hidePassword() ? 'password' : 'text'"
+          formControlName="password"
+          placeholder="Create a strong password"
+          autocomplete="new-password"
+        />
+        <mat-icon matPrefix>lock</mat-icon>
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="'Toggle password visibility'"
+        >
+          <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-error>
+          {{ getFieldError('password') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Confirm Password Field -->
+      <mat-form-field appearance="outline">
+        <mat-label>Confirm Password</mat-label>
+        <input
+          matInput
+          [type]="hideConfirmPassword() ? 'password' : 'text'"
+          formControlName="confirmPassword"
+          placeholder="Re-enter your password"
+          autocomplete="new-password"
+        />
+        <mat-icon matPrefix>lock</mat-icon>
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="toggleConfirmPasswordVisibility()"
+          [attr.aria-label]="'Toggle password visibility'"
+        >
+          <mat-icon>{{ hideConfirmPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-error>
+          {{ getFieldError('confirmPassword') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Terms Notice -->
+      <div class="terms-notice">
+        <p>
+          By signing up, you agree to our
+          <a href="#">Terms of Service</a> and
+          <a href="#">Privacy Policy</a>
+        </p>
+      </div>
+
+      <!-- Register Button -->
+      <button
+        mat-raised-button
+        type="submit"
+        class="btn-primary"
+        [disabled]="loading()"
+      >
+        @if (!loading()) {
+          <span>Register Now</span>
+        } @else {
+          <mat-spinner diameter="24"></mat-spinner>
+        }
+      </button>
+    </form>
+
+    <!-- ==================== FOOTER ==================== -->
+    <div class="auth-footer">
+      <p>
+        Already a member?
+        <a routerLink="/auth/login">Sign in now</a>
+      </p>
+    </div>
+
+  </div>
+</div>

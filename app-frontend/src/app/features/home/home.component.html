@@ -1,0 +1,133 @@
+<div class="home-container">
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="home-header">
+    <div class="header-content">
+      <div class="logo">
+        <svg width="40" height="40" viewBox="0 0 250 250">
+          <polygon fill="#DD0031" points="125,30 125,30 125,30 31.9,63.2 46.1,186.3 125,230 125,230 125,230 203.9,186.3 218.1,63.2"/>
+          <polygon fill="#C3002F" points="125,30 125,52.2 125,52.1 125,153.4 125,153.4 125,230 125,230 203.9,186.3 218.1,63.2 125,30"/>
+          <path fill="#FFF" d="M125,52.1L66.8,182.6h0h21.7h0l11.7-29.2h49.4l11.7,29.2h0h21.7h0L125,52.1L125,52.1L125,52.1L125,52.1 L125,52.1z M142,135.4H108l17-40.9L142,135.4z"/>
+        </svg>
+        <h1>Task Manager</h1>
+      </div>
+
+      <button mat-raised-button color="warn" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="home-main">
+
+    <!-- Welcome Card -->
+    <mat-card class="welcome-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="user-avatar">person</mat-icon>
+        <mat-card-title>Welcome back!</mat-card-title>
+        <mat-card-subtitle>{{ currentUser()?.fullName }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="user-info">
+          <div class="info-item">
+            <mat-icon>email</mat-icon>
+            <span>{{ currentUser()?.email }}</span>
+          </div>
+          <div class="info-item">
+            <mat-icon>badge</mat-icon>
+            <span>{{ currentUser()?.role }}</span>
+          </div>
+          <div class="info-item">
+            <mat-icon>security</mat-icon>
+            <span>{{ currentUser()?.authProvider }}</span>
+          </div>
+          <div class="info-item">
+            <mat-icon>{{ currentUser()?.emailVerified ? 'verified' : 'error' }}</mat-icon>
+            <span>{{ currentUser()?.emailVerified ? 'Email Verified' : 'Email Not Verified' }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Test API Card -->
+    <mat-card class="test-api-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="api-avatar">api</mat-icon>
+        <mat-card-title>Test API Endpoints</mat-card-title>
+        <mat-card-subtitle>Test your backend connection</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <!-- API Buttons -->
+        <div class="api-buttons">
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="testHello()"
+            [disabled]="testing()"
+          >
+            <mat-icon>public</mat-icon>
+            Test Hello (Public)
+          </button>
+
+          <button
+            mat-raised-button
+            color="accent"
+            (click)="testSecure()"
+            [disabled]="testing()"
+          >
+            <mat-icon>lock</mat-icon>
+            Test Secure (Auth)
+          </button>
+
+          <button
+            mat-raised-button
+            (click)="testHealth()"
+            [disabled]="testing()"
+          >
+            <mat-icon>favorite</mat-icon>
+            Health Check
+          </button>
+
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="testEcho()"
+            [disabled]="testing()"
+          >
+            <mat-icon>send</mat-icon>
+            Echo Test
+          </button>
+        </div>
+
+        <!-- Loading Spinner -->
+        @if (testing()) {
+          <div class="loading-container">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p>Testing API...</p>
+          </div>
+        }
+
+        <!-- Test Result -->
+        @if (testResult() && !testing()) {
+          <div class="test-result" [class.success]="testSuccess()" [class.error]="!testSuccess()">
+            <div class="result-header">
+              <mat-icon>{{ testSuccess() ? 'check_circle' : 'error' }}</mat-icon>
+              <h3>{{ testSuccess() ? 'Success' : 'Error' }}</h3>
+            </div>
+            <pre>{{ testResult() | json }}</pre>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+  </main>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="home-footer">
+    <p>&copy; 2025 Task Manager. Built with Angular {{ getAngularVersion() }}</p>
+  </footer>
+
+</div>

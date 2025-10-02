@@ -1,0 +1,126 @@
+<div class="auth-container">
+  <div class="auth-card">
+
+    <!-- ==================== HEADER ==================== -->
+    <div class="auth-header">
+      <div class="auth-avatar">
+        <!-- Angular Logo SVG -->
+        <svg viewBox="0 0 250 250">
+          <polygon fill="#FFF" points="125,30 125,30 125,30 31.9,63.2 46.1,186.3 125,230 125,230 125,230 203.9,186.3 218.1,63.2"/>
+          <polygon fill="#FFF" points="125,30 125,52.2 125,52.1 125,153.4 125,153.4 125,230 125,230 203.9,186.3 218.1,63.2 125,30"/>
+          <path fill="#DD0031" d="M125,52.1L66.8,182.6h0h21.7h0l11.7-29.2h49.4l11.7,29.2h0h21.7h0L125,52.1L125,52.1L125,52.1L125,52.1 L125,52.1z M142,135.4H108l17-40.9L142,135.4z"/>
+        </svg>
+      </div>
+      <h1>Sign in to Task Manager</h1>
+      <p>
+        Don't have an account?
+        <a routerLink="/auth/register">Sign Up</a>
+      </p>
+    </div>
+
+    <!-- ==================== ERROR MESSAGE ==================== -->
+    @if (errorMessage()) {
+      <div class="alert alert-error" role="alert">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <!-- ==================== SOCIAL LOGIN ==================== -->
+    <div class="social-buttons">
+      <!-- Google Sign-In Button (rendered by Google SDK) -->
+      <div id="google-signin-button" class="google-button-container"></div>
+
+      <!-- Facebook Login Button -->
+      <button
+        mat-stroked-button
+        class="social-btn facebook-btn"
+        [disabled]="loading()"
+        (click)="loginWithFacebook()"
+        type="button"
+      >
+        <mat-icon>facebook</mat-icon>
+        Sign in with Facebook
+      </button>
+    </div>
+
+    <!-- ==================== DIVIDER ==================== -->
+    <div class="divider-container">
+      <mat-divider></mat-divider>
+      <span class="divider-text">OR</span>
+      <mat-divider></mat-divider>
+    </div>
+
+    <!-- ==================== LOGIN FORM ==================== -->
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
+
+      <!-- Email Field -->
+      <mat-form-field appearance="outline">
+        <mat-label>Email Address</mat-label>
+        <input
+          matInput
+          type="email"
+          formControlName="email"
+          placeholder="your@email.com"
+          autocomplete="email"
+        />
+        <mat-icon matPrefix>email</mat-icon>
+        <mat-error>
+          {{ getFieldError('email') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Password Field -->
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input
+          matInput
+          [type]="hidePassword() ? 'password' : 'text'"
+          formControlName="password"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+        />
+        <mat-icon matPrefix>lock</mat-icon>
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="'Toggle password visibility'"
+        >
+          <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-error>
+          {{ getFieldError('password') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Forgot Password Link -->
+      <div class="forgot-password">
+        <a routerLink="/auth/forgot-password">Forgot password?</a>
+      </div>
+
+      <!-- Login Button -->
+      <button
+        mat-raised-button
+        type="submit"
+        class="btn-primary"
+        [disabled]="loading()"
+      >
+        @if (!loading()) {
+          <span>Login</span>
+        } @else {
+          <mat-spinner diameter="24"></mat-spinner>
+        }
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <p>
+        New to Task Manager?
+        <a routerLink="/auth/register">Create an account</a>
+      </p>
+    </div>
+
+  </div>
+</div>
