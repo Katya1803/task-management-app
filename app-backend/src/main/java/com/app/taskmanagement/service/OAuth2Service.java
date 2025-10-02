@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -192,14 +193,14 @@ public class OAuth2Service {
     private OAuth2UserInfo verifyFacebookAccessToken(String accessToken) {
         try {
             String url = String.format(
-                    "https://graph.facebook.com/me?fields=id,name,email&access_token=%s",
+                    SecurityConstants.FACEBOOK_USER_INFO_URL,
                     accessToken
             );
 
-            Map userInfo = webClient.get()
+            Map<String, Object> userInfo = webClient.get()
                     .uri(url)
                     .retrieve()
-                    .bodyToMono(Map.class)
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
 
             if (userInfo == null) {
@@ -207,14 +208,14 @@ public class OAuth2Service {
             }
 
             String debugUrl = String.format(
-                    "https://graph.facebook.com/debug_token?input_token=%s&access_token=%s|%s",
+                    SecurityConstants.FACEBOOK_DEBUG_TOKEN_URL,
                     accessToken, facebookAppId, facebookAppSecret
             );
 
-            Map debugResponse = webClient.get()
+            Map<String, Object> debugResponse = webClient.get()
                     .uri(debugUrl)
                     .retrieve()
-                    .bodyToMono(Map.class)
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
 
             if (debugResponse == null) {
@@ -235,4 +236,5 @@ public class OAuth2Service {
             throw new ApplicationException(ErrorCode.OAUTH2_VERIFICATION_FAILED);
         }
     }
+
 }

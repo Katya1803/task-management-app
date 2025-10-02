@@ -69,7 +69,7 @@ public class RefreshTokenRedisService {
         if (tokenData != null) {
             Object userIdObj = tokenData.get("userId");
             if (userIdObj != null) {
-                Long userId = Long.valueOf(userIdObj.toString());
+                long userId = Long.parseLong(userIdObj.toString());
                 String userTokensKey = SecurityConstants.USER_TOKENS_PREFIX + userId;
                 redisTemplate.opsForSet().remove(userTokensKey, token);
             }
