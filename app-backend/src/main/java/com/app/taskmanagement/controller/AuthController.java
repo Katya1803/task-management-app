@@ -1,6 +1,7 @@
 package com.app.taskmanagement.controller;
 
-import com.app.taskmanagement.dto.*;
+import com.app.taskmanagement.dto.request.*;
+import com.app.taskmanagement.dto.response.AuthResponse;
 import com.app.taskmanagement.service.AuthService;
 import com.app.taskmanagement.service.OAuth2Service;
 import jakarta.servlet.http.HttpServletRequest;

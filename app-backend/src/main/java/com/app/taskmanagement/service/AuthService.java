@@ -1,11 +1,13 @@
+// src/main/java/com/app/taskmanagement/service/AuthService.java
 package com.app.taskmanagement.service;
 
-import com.app.taskmanagement.dto.*;
+import com.app.taskmanagement.dto.request.LoginRequest;
+import com.app.taskmanagement.dto.request.RegisterRequest;
+import com.app.taskmanagement.dto.request.VerifyOtpRequest;
+import com.app.taskmanagement.dto.response.AuthResponse;
+import com.app.taskmanagement.dto.response.UserDto;
 import com.app.taskmanagement.exception.*;
-import com.app.taskmanagement.model.EmailVerification;
-import com.app.taskmanagement.model.RefreshToken;
 import com.app.taskmanagement.model.User;
-import com.app.taskmanagement.repository.EmailVerificationRepository;
 import com.app.taskmanagement.repository.UserRepository;
 import com.app.taskmanagement.security.JwtUtil;
 import jakarta.servlet.http.Cookie;
@@ -18,25 +20,24 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final EmailVerificationRepository emailVerificationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
-    private final RefreshTokenService refreshTokenService;
 
-    @Value("${otp.expiration}")
-    private Long otpExpiration;
+    // ✅ Redis services
+    private final OtpRedisService otpRedisService;
+    private final RefreshTokenRedisService refreshTokenRedisService;
 
     @Value("${jwt.access-token-expiration}")
     private Long accessTokenExpiration;
+
+    // ==================== REGISTRATION ====================
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -58,52 +59,38 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
-        log.info("User registered successfully: {}", user.getEmail());
+        log.info("✅ User registered: {}", user.getEmail());
 
-        // Send OTP
+        // Send OTP via Redis
         sendVerificationOtp(request.getEmail());
     }
 
+    // ==================== OTP VERIFICATION ====================
+
     @Transactional
     public void sendVerificationOtp(String email) {
-        // Rate limiting: max 3 OTPs per 15 minutes
-        LocalDateTime fifteenMinutesAgo = LocalDateTime.now().minusMinutes(15);
-        long recentAttempts = emailVerificationRepository.countRecentAttempts(email, fifteenMinutesAgo);
+        try {
+            // Generate and save OTP in Redis (with rate limiting)
+            String otp = otpRedisService.generateAndSaveOtp(email);
 
-        if (recentAttempts >= 3) {
-            throw new AuthException("Too many OTP requests. Please try again later.");
+            // Send email
+            emailService.sendOtpEmail(email, otp);
+
+            log.info("✅ OTP sent to: {}", email);
+        } catch (Exception e) {
+            log.error("❌ Failed to send OTP: {}", email, e);
+            throw new RuntimeException("Failed to send verification code. " + e.getMessage());
         }
-
-        // Invalidate old OTPs
-        emailVerificationRepository.markAllAsUsedByEmail(email);
-
-        // Create new OTP
-        EmailVerification verification = EmailVerification.builder()
-                .email(email)
-                .expiresAt(LocalDateTime.now().plusSeconds(otpExpiration / 1000))
-                .build();
-
-        emailVerificationRepository.save(verification);
-
-        // Send email
-        emailService.sendOtpEmail(email, verification.getOtpCode());
-        log.info("OTP sent to: {}", email);
     }
 
     @Transactional
     public void verifyEmail(VerifyOtpRequest request) {
-        EmailVerification verification = emailVerificationRepository
-                .findValidOtpByEmailAndCode(request.getEmail(), request.getOtp())
-                .orElseThrow(InvalidOtpException::new);
+        // Verify OTP from Redis
+        boolean isValid = otpRedisService.verifyOtp(request.getEmail(), request.getOtp());
 
-        // Check if valid
-        if (!verification.isValid()) {
+        if (!isValid) {
             throw new InvalidOtpException();
         }
-
-        // Mark as used
-        verification.markAsUsed();
-        emailVerificationRepository.save(verification);
 
         // Update user
         User user = userRepository.findByEmail(request.getEmail())
@@ -115,11 +102,15 @@ public class AuthService {
         // Send welcome email
         emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
 
-        log.info("Email verified successfully: {}", user.getEmail());
+        log.info("✅ Email verified successfully: {}", user.getEmail());
     }
 
+    // ==================== LOGIN ====================
+
     @Transactional
-    public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+    public AuthResponse login(LoginRequest request,
+                              HttpServletRequest httpRequest,
+                              HttpServletResponse httpResponse) {
         // Find user
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(InvalidCredentialsException::new);
@@ -141,12 +132,12 @@ public class AuthService {
 
         // Generate tokens
         String accessToken = jwtUtil.generateAccessToken(user);
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user, httpRequest);
+        String refreshToken = refreshTokenRedisService.createRefreshToken(user, httpRequest);
 
         // Set refresh token in cookie
-        setRefreshTokenCookie(httpResponse, refreshToken.getToken());
+        setRefreshTokenCookie(httpResponse, refreshToken);
 
-        log.info("User logged in successfully: {}", user.getEmail());
+        log.info("✅ User logged in: {}", user.getEmail());
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -156,39 +147,43 @@ public class AuthService {
                 .build();
     }
 
+    // ==================== TOKEN REFRESH ====================
+
     @Transactional
-    public AuthResponse refreshAccessToken(HttpServletRequest request, HttpServletResponse response) {
+    public AuthResponse refreshAccessToken(HttpServletRequest request,
+                                           HttpServletResponse response) {
         // Get refresh token from cookie
-        String refreshTokenValue = extractRefreshTokenFromCookie(request);
-        if (refreshTokenValue == null) {
+        String refreshToken = extractRefreshTokenFromCookie(request);
+        if (refreshToken == null) {
             throw new InvalidTokenException();
         }
 
-        // Validate refresh token
-        RefreshToken refreshToken = refreshTokenService.findByToken(refreshTokenValue)
-                .orElseThrow(InvalidTokenException::new);
-
-        if (!refreshToken.isValid()) {
+        // Validate refresh token from Redis
+        Long userId = refreshTokenRedisService.validateAndGetUserId(refreshToken);
+        if (userId == null) {
             throw new InvalidTokenException();
         }
 
-        User user = refreshToken.getUser();
+        // Load user
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
 
-        // Check if user is still active
         if (!user.getIsActive()) {
             throw new AccountDisabledException();
         }
 
         // Rotate refresh token
-        RefreshToken newRefreshToken = refreshTokenService.rotateRefreshToken(refreshToken, request);
+        String newRefreshToken = refreshTokenRedisService.rotateRefreshToken(
+                refreshToken, user, request
+        );
 
         // Generate new access token
         String newAccessToken = jwtUtil.generateAccessToken(user);
 
         // Set new refresh token in cookie
-        setRefreshTokenCookie(response, newRefreshToken.getToken());
+        setRefreshTokenCookie(response, newRefreshToken);
 
-        log.info("Access token refreshed for user: {}", user.getEmail());
+        log.info("✅ Tokens refreshed for user: {}", user.getEmail());
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
@@ -198,18 +193,34 @@ public class AuthService {
                 .build();
     }
 
+    // ==================== LOGOUT ====================
+
     @Transactional
     public void logout(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenValue = extractRefreshTokenFromCookie(request);
+        String refreshToken = extractRefreshTokenFromCookie(request);
 
-        if (refreshTokenValue != null) {
-            refreshTokenService.revokeToken(refreshTokenValue);
+        if (refreshToken != null) {
+            // Revoke refresh token from Redis
+            refreshTokenRedisService.revokeToken(refreshToken);
         }
 
         // Clear cookie
         clearRefreshTokenCookie(response);
 
-        log.info("User logged out successfully");
+        log.info("✅ User logged out");
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    private String extractRefreshTokenFromCookie(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     private void setRefreshTokenCookie(HttpServletResponse response, String token) {
@@ -228,18 +239,6 @@ public class AuthService {
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
-    }
-
-    private String extractRefreshTokenFromCookie(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("refreshToken".equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
-        }
-        return null;
     }
 
     private UserDto mapToUserDto(User user) {

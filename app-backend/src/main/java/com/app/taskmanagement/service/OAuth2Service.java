@@ -1,10 +1,10 @@
 package com.app.taskmanagement.service;
 
-import com.app.taskmanagement.dto.AuthResponse;
-import com.app.taskmanagement.dto.OAuth2UserInfo;
+import com.app.taskmanagement.dto.response.AuthResponse;
+import com.app.taskmanagement.dto.response.OAuth2UserInfo;
+import com.app.taskmanagement.dto.response.UserDto;
 import com.app.taskmanagement.exception.AuthException;
 import com.app.taskmanagement.exception.InvalidTokenException;
-import com.app.taskmanagement.model.RefreshToken;
 import com.app.taskmanagement.model.User;
 import com.app.taskmanagement.repository.UserRepository;
 import com.app.taskmanagement.security.JwtUtil;
@@ -32,7 +32,7 @@ public class OAuth2Service {
 
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
-    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenRedisService refreshTokenRedisService;
 
     @Value("${oauth2.google.client-id}")
     private String googleClientId;
@@ -283,12 +283,13 @@ public class OAuth2Service {
     /**
      * Generate auth response with tokens
      */
-    private AuthResponse generateAuthResponse(User user, HttpServletRequest request, HttpServletResponse response) {
+    private AuthResponse generateAuthResponse(User user,
+                                              HttpServletRequest request,
+                                              HttpServletResponse response) {
         String accessToken = jwtUtil.generateAccessToken(user);
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user, request);
+        String refreshToken = refreshTokenRedisService.createRefreshToken(user, request);  // ✅ Redis
 
-        // Set refresh token in cookie
-        setRefreshTokenCookie(response, refreshToken.getToken());
+        setRefreshTokenCookie(response, refreshToken);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -320,8 +321,8 @@ public class OAuth2Service {
         response.addCookie(cookie);
     }
 
-    private com.app.taskmanagement.dto.UserDto mapToUserDto(User user) {
-        return com.app.taskmanagement.dto.UserDto.builder()
+    private UserDto mapToUserDto(User user) {
+        return UserDto.builder()
                 .publicId(user.getPublicId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())

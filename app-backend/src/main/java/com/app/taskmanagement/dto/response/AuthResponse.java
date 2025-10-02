@@ -1,4 +1,4 @@
-package com.app.taskmanagement.dto;
+package com.app.taskmanagement.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
