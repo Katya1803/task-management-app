@@ -9,6 +9,6 @@ public final class TimeConstants {
     public static final int OTP_LENGTH = 6;
     public static final int OTP_EXPIRATION_MINUTES = 5;
 
-    public static final int ACCESS_TOKEN_EXPIRATION_MINUTES = 15;
-    public static final int REFRESH_TOKEN_EXPIRATION_DAYS = 7;
+    public static final String DEFAULT_PATTERN = "yyyy-MM-dd HH:mm:ss";
+
 }
