@@ -20,7 +20,7 @@ export class AuthService {
     readonly currentUser = computed(() => this._currentUser());
     readonly isAuthenticated = computed(() => !!this._accessToken());
     readonly isRestoring = computed(() => this._isRestoring());
-    
+
   constructor() {
     this.restoreSession();
   }
@@ -212,5 +212,5 @@ export class AuthService {
     console.error('❌ Authentication error:', errorMessage);
     return throwError(() => new Error(errorMessage));
   }
-    
+
 }

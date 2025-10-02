@@ -55,7 +55,7 @@ export class HomeComponent implements OnInit {
     this.testResult.set(null);
 
     // Call public test endpoint (no auth required)
-    fetch('/api/test/hello')
+    fetch('http://localhost:8080/api/test/hello')
       .then(res => res.json())
       .then(data => {
         this.testing.set(false);
@@ -78,7 +78,7 @@ export class HomeComponent implements OnInit {
     const token = this.authService.getAccessToken();
 
     // Call secure test endpoint (auth required)
-    fetch('/api/test/secure', {
+    fetch('http://localhost:8080/api/test/secure', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -102,7 +102,7 @@ export class HomeComponent implements OnInit {
     this.testing.set(true);
     this.testResult.set(null);
 
-    fetch('/api/test/health')
+    fetch('http://localhost:8080/api/test/health')
       .then(res => res.json())
       .then(data => {
         this.testing.set(false);
@@ -130,7 +130,7 @@ export class HomeComponent implements OnInit {
 
     const token = this.authService.getAccessToken();
 
-    fetch('/api/test/echo', {
+    fetch('http://localhost:8080/api/test/echo', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
