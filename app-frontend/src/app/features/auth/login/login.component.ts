@@ -1,6 +1,4 @@
-// File: app-frontend/src/app/features/auth/login/login.component.ts
-
-import { Component, OnInit, AfterViewInit, inject, signal, NgZone } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
@@ -13,7 +11,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../../core/services/auth.service';
 import { environment } from '../../../../environments/environment';
 
-declare const google: any;
 declare const FB: any;
 
 @Component({
@@ -33,112 +30,64 @@ declare const FB: any;
   templateUrl: './login.component.html',
   styleUrls: ['../../../shared/styles/auth-common.scss', './login.component.scss']
 })
-export class LoginComponent implements OnInit, AfterViewInit {
-  // ==================== SIGNALS ====================
+export class LoginComponent implements OnInit {
   loading = signal(false);
   hidePassword = signal(true);
   errorMessage = signal('');
   returnUrl = signal('/home');
 
-  // ==================== FORM ====================
   loginForm!: FormGroup;
 
-  // ==================== SERVICES ====================
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private ngZone = inject(NgZone);
 
-  // ==================== LIFECYCLE ====================
   ngOnInit(): void {
-    // Initialize form
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]]
     });
 
-    // Get return URL from route params or default to '/home'
     this.returnUrl.set(this.route.snapshot.queryParams['returnUrl'] || '/home');
-  }
-
-  ngAfterViewInit(): void {
-    // Initialize Google Sign-In
-    this.initializeGoogleSignIn();
-
-    // Initialize Facebook SDK
+    
     this.initializeFacebookSDK();
   }
 
-  // ==================== GOOGLE SIGN-IN ====================
-  private initializeGoogleSignIn(): void {
-    if (typeof google === 'undefined') {
-      setTimeout(() => this.initializeGoogleSignIn(), 500);
-      return;
-    }
+  loginWithGoogle(): void {
+    this.loading.set(true);
+    this.errorMessage.set('');
 
-    try {
-      google.accounts.id.initialize({
-        client_id: environment.google.clientId,
-        callback: (response: any) => this.handleGoogleCallback(response),
-        auto_select: false,
-        cancel_on_tap_outside: true
-      });
+    const redirectUri = `${window.location.origin}/auth/google-callback`;
+    const scope = 'openid profile email';
+    const responseType = 'id_token token';
+    const nonce = Math.random().toString(36).substring(2, 15);
 
-      // ✅ Let Google SDK render the button (works without strict origin config)
-      const buttonElement = document.getElementById('google-signin-button');
-      if (buttonElement) {
-        google.accounts.id.renderButton(buttonElement, {
-          theme: 'outline',
-          size: 'large',
-          text: 'signin_with',
-          shape: 'rectangular',
-          logo_alignment: 'left',
-          locale: 'en',
-          width: buttonElement.offsetWidth
-        });
-        console.log('✅ Google Sign-In button rendered');
-      }
-    } catch (error) {
-      console.error('❌ Failed to initialize Google Sign-In:', error);
-      this.errorMessage.set('Failed to load Google Sign-In');
-    }
-  }
+    localStorage.setItem('google_auth_nonce', nonce);
+    localStorage.setItem('google_auth_return_url', this.returnUrl());
 
-  private handleGoogleCallback(response: any): void {
-    this.ngZone.run(() => {
-      if (!response.credential) {
-        this.errorMessage.set('Google Sign-In failed');
-        this.loading.set(false);
-        return;
-      }
-
-      this.loading.set(true);
-      this.errorMessage.set('');
-
-      this.authService.loginWithGoogle(response.credential).subscribe({
-        next: () => {
-          this.loading.set(false);
-          console.log('✅ Google login successful');
-          this.router.navigate([this.returnUrl()]);
-        },
-        error: (error) => {
-          this.loading.set(false);
-          this.errorMessage.set(this.getErrorMessage(error.message));
-          console.error('❌ Google login failed:', error);
-        }
-      });
+    const params = new URLSearchParams({
+      client_id: environment.google.clientId,
+      redirect_uri: redirectUri,
+      response_type: responseType,
+      scope: scope,
+      nonce: nonce,
+      state: this.returnUrl(),
+      prompt: 'select_account'
     });
+
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
-  // ==================== FACEBOOK SIGN-IN ====================
   private initializeFacebookSDK(): void {
-    // Wait for Facebook SDK to load
-    if (typeof FB === 'undefined') {
-      setTimeout(() => this.initializeFacebookSDK(), 500);
-      return;
-    }
-    console.log('✅ Facebook SDK initialized');
+    const checkFB = setInterval(() => {
+      if (typeof FB !== 'undefined') {
+        console.log('✅ Facebook SDK initialized');
+        clearInterval(checkFB);
+      }
+    }, 500);
+
+    setTimeout(() => clearInterval(checkFB), 10000);
   }
 
   loginWithFacebook(): void {
@@ -151,37 +100,35 @@ export class LoginComponent implements OnInit, AfterViewInit {
     this.errorMessage.set('');
 
     FB.login((response: any) => {
-      this.ngZone.run(() => {
-        if (response.authResponse) {
-          const accessToken = response.authResponse.accessToken;
-          console.log('✅ Facebook access token received');
+      if (response.authResponse) {
+        const accessToken = response.authResponse.accessToken;
+        console.log('✅ Facebook access token received');
 
-          this.authService.loginWithFacebook(accessToken).subscribe({
-            next: () => {
-              this.loading.set(false);
-              console.log('✅ Facebook login successful');
-              this.router.navigate([this.returnUrl()]);
-            },
-            error: (error) => {
-              this.loading.set(false);
-              this.errorMessage.set(this.getErrorMessage(error.message));
-              console.error('❌ Facebook login failed:', error);
-            }
-          });
-        } else {
-          this.loading.set(false);
-          this.errorMessage.set('Facebook login cancelled');
-          console.log('❌ Facebook login cancelled by user');
-        }
-      });
-    }, { scope: 'email,public_profile' });
+        this.authService.loginWithFacebook(accessToken).subscribe({
+          next: () => {
+            this.loading.set(false);
+            console.log('✅ Facebook login successful');
+            this.router.navigate([this.returnUrl()]);
+          },
+          error: (error) => {
+            this.loading.set(false);
+            this.errorMessage.set(this.getErrorMessage(error.message));
+            console.error('❌ Facebook login failed:', error);
+          }
+        });
+      } else {
+        this.loading.set(false);
+        this.errorMessage.set('Facebook login was cancelled');
+        console.log('❌ Facebook login cancelled');
+      }
+    }, { scope: 'public_profile,email' });
   }
 
-  // ==================== EMAIL/PASSWORD LOGIN ====================
   onSubmit(): void {
-    // Validate form
     if (this.loginForm.invalid) {
-      this.markFormGroupTouched(this.loginForm);
+      Object.keys(this.loginForm.controls).forEach(key => {
+        this.loginForm.get(key)?.markAsTouched();
+      });
       return;
     }
 
@@ -204,53 +151,37 @@ export class LoginComponent implements OnInit, AfterViewInit {
     });
   }
 
-  // ==================== UI HELPERS ====================
-  togglePasswordVisibility(): void {
-    this.hidePassword.update(value => !value);
-  }
-
-  // ==================== ERROR HANDLING ====================
-  private getErrorMessage(error: string): string {
-    if (error.includes('email') && error.includes('verified')) {
-      return 'Please verify your email first. Check your inbox.';
-    }
-    if (error.includes('credentials') || error.includes('password')) {
-      return 'Invalid email or password.';
-    }
-    if (error.includes('disabled')) {
-      return 'Account disabled. Please contact support.';
-    }
-    if (error.includes('Google') || error.includes('Facebook')) {
-      return 'Social login failed. Please try again.';
-    }
-    return 'Login failed. Please try again.';
-  }
-
-  // ==================== FORM VALIDATION ====================
-  private markFormGroupTouched(formGroup: FormGroup): void {
-    Object.keys(formGroup.controls).forEach(key => {
-      const control = formGroup.get(key);
-      control?.markAsTouched();
-
-      if (control instanceof FormGroup) {
-        this.markFormGroupTouched(control);
-      }
-    });
-  }
-
   getFieldError(fieldName: string): string {
     const field = this.loginForm.get(fieldName);
-    if (!field?.touched) return '';
+    if (!field || !field.touched || !field.errors) {
+      return '';
+    }
 
-    if (field?.hasError('required')) {
-      return `${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)} is required`;
+    if (field.errors['required']) {
+      return `${this.capitalize(fieldName)} is required`;
     }
-    if (field?.hasError('email')) {
-      return 'Please enter a valid email';
+    if (field.errors['email']) {
+      return 'Please enter a valid email address';
     }
-    if (field?.hasError('minlength')) {
-      return 'Password must be at least 6 characters';
+    if (field.errors['minlength']) {
+      return `${this.capitalize(fieldName)} must be at least ${field.errors['minlength'].requiredLength} characters`;
     }
-    return '';
+
+    return 'Invalid field';
+  }
+
+  private getErrorMessage(message: string): string {
+    const errorMap: { [key: string]: string } = {
+      'Invalid credentials': 'Invalid email or password',
+      'Account not verified': 'Please verify your email before logging in',
+      'Account is disabled': 'Your account has been disabled. Please contact support',
+      'Too many attempts': 'Too many login attempts. Please try again later'
+    };
+
+    return errorMap[message] || message || 'An error occurred. Please try again';
+  }
+
+  private capitalize(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }
