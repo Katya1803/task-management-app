@@ -1,3 +1,5 @@
+// File: app-frontend/src/app/features/auth/login/login.component.ts
+
 import { Component, OnInit, AfterViewInit, inject, signal, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -38,33 +40,38 @@ export class LoginComponent implements OnInit, AfterViewInit {
   errorMessage = signal('');
   returnUrl = signal('/home');
 
+  // ==================== FORM ====================
   loginForm!: FormGroup;
 
+  // ==================== SERVICES ====================
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private ngZone = inject(NgZone);
 
+  // ==================== LIFECYCLE ====================
   ngOnInit(): void {
-    // Get return URL from query params
-    this.returnUrl.set(this.route.snapshot.queryParams['returnUrl'] || '/home');
-
     // Initialize form
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]]
     });
+
+    // Get return URL from route params or default to '/home'
+    this.returnUrl.set(this.route.snapshot.queryParams['returnUrl'] || '/home');
   }
 
   ngAfterViewInit(): void {
-    // Initialize OAuth providers after view loads
+    // Initialize Google Sign-In
     this.initializeGoogleSignIn();
+
+    // Initialize Facebook SDK
     this.initializeFacebookSDK();
   }
 
+  // ==================== GOOGLE SIGN-IN ====================
   private initializeGoogleSignIn(): void {
-    // Wait for Google SDK to load
     if (typeof google === 'undefined') {
       setTimeout(() => this.initializeGoogleSignIn(), 500);
       return;
@@ -78,6 +85,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
         cancel_on_tap_outside: true
       });
 
+      // ✅ Let Google SDK render the button (works without strict origin config)
       const buttonElement = document.getElementById('google-signin-button');
       if (buttonElement) {
         google.accounts.id.renderButton(buttonElement, {
@@ -86,9 +94,10 @@ export class LoginComponent implements OnInit, AfterViewInit {
           text: 'signin_with',
           shape: 'rectangular',
           logo_alignment: 'left',
+          locale: 'en',
           width: buttonElement.offsetWidth
         });
-        console.log('✅ Google Sign-In initialized');
+        console.log('✅ Google Sign-In button rendered');
       }
     } catch (error) {
       console.error('❌ Failed to initialize Google Sign-In:', error);
@@ -100,6 +109,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     this.ngZone.run(() => {
       if (!response.credential) {
         this.errorMessage.set('Google Sign-In failed');
+        this.loading.set(false);
         return;
       }
 
@@ -121,6 +131,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     });
   }
 
+  // ==================== FACEBOOK SIGN-IN ====================
   private initializeFacebookSDK(): void {
     // Wait for Facebook SDK to load
     if (typeof FB === 'undefined') {
@@ -166,6 +177,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     }, { scope: 'email,public_profile' });
   }
 
+  // ==================== EMAIL/PASSWORD LOGIN ====================
   onSubmit(): void {
     // Validate form
     if (this.loginForm.invalid) {
@@ -192,10 +204,12 @@ export class LoginComponent implements OnInit, AfterViewInit {
     });
   }
 
+  // ==================== UI HELPERS ====================
   togglePasswordVisibility(): void {
     this.hidePassword.update(value => !value);
   }
 
+  // ==================== ERROR HANDLING ====================
   private getErrorMessage(error: string): string {
     if (error.includes('email') && error.includes('verified')) {
       return 'Please verify your email first. Check your inbox.';
@@ -212,6 +226,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     return 'Login failed. Please try again.';
   }
 
+  // ==================== FORM VALIDATION ====================
   private markFormGroupTouched(formGroup: FormGroup): void {
     Object.keys(formGroup.controls).forEach(key => {
       const control = formGroup.get(key);

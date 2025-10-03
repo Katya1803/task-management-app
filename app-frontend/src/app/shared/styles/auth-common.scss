@@ -1,3 +1,4 @@
+// ==================== VARIABLES ====================
 $primary-purple: #DD0031;      // Angular Red
 $primary-black: #1976D2;       // Angular Blue
 $text-primary: #1F2937;
@@ -13,21 +14,23 @@ $success-green: #10B981;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #FFFFFF;  // ✅ Nền trắng tinh
   padding: 1rem;
 }
 
 .auth-card {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  padding: 2.5rem 2rem;
+  border-radius: 12px;
+  border: 1px solid #D1D5DB;  // ✅ Viền mỏng, màu xám nhẹ thay vì đen đậm
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 2rem 1.75rem;
   width: 100%;
-  max-width: 440px;
+  max-width: 400px;  // ✅ Thu nhỏ lại từ 440px
   animation: fadeIn 0.5s ease-in-out;
 
   @media (max-width: 640px) {
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1.25rem;
+    max-width: 360px;
   }
 }
 
@@ -45,12 +48,12 @@ $success-green: #10B981;
 // ==================== HEADER ====================
 .auth-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 
   .auth-avatar {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 1.5rem;
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 1.25rem;
     background: linear-gradient(135deg, #DD0031 0%, #C3002F 100%);
     border-radius: 50%;
     display: flex;
@@ -59,14 +62,14 @@ $success-green: #10B981;
     box-shadow: 0 4px 12px rgba(221, 0, 49, 0.3);
 
     svg {
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       fill: white;
     }
   }
 
   h1 {
-    font-size: 1.875rem;
+    font-size: 1.625rem;  // Thu nhỏ từ 1.875rem
     font-weight: 700;
     color: $text-primary;
     margin-bottom: 0.5rem;
@@ -92,9 +95,9 @@ $success-green: #10B981;
 
 // ==================== ALERTS ====================
 .alert {
-  padding: 1rem;
+  padding: 0.875rem;
   border-radius: 8px;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -141,7 +144,7 @@ $success-green: #10B981;
 .auth-form {
   mat-form-field {
     width: 100%;
-    margin-bottom: 1rem;
+    margin-bottom: 0.875rem;
 
     &.mat-form-field-appearance-outline {
       .mat-mdc-text-field-wrapper {
@@ -149,8 +152,8 @@ $success-green: #10B981;
       }
 
       .mat-mdc-form-field-infix {
-        padding: 14px 0;
-        min-height: 44px;
+        padding: 12px 0;
+        min-height: 40px;
       }
     }
   }
@@ -177,11 +180,11 @@ $success-green: #10B981;
 // ==================== BUTTONS ====================
 .btn-primary {
   width: 100%;
-  height: 48px;
+  height: 44px;  // Thu nhỏ từ 48px
   background: $primary-black !important;
   color: white !important;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   border-radius: 8px;
   text-transform: none;
   letter-spacing: 0.025em;
@@ -207,7 +210,7 @@ $success-green: #10B981;
 .divider-container {
   display: flex;
   align-items: center;
-  margin: 1.5rem 0;
+  margin: 1.25rem 0;
 
   mat-divider {
     flex: 1;
@@ -216,7 +219,7 @@ $success-green: #10B981;
   .divider-text {
     padding: 0 1rem;
     color: $text-secondary;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 500;
   }
 }
@@ -224,12 +227,12 @@ $success-green: #10B981;
 .social-buttons {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: 0.75rem;  // 
+  margin-bottom: 1.25rem;
 
   .social-btn {
     width: 100%;
-    height: 48px;
+    height: 44px;
     border-radius: 8px;
     font-weight: 500;
     font-size: 0.875rem;
@@ -239,60 +242,91 @@ $success-green: #10B981;
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
+    border: 1px solid #D1D5DB;  // ✅ Cả 2 đều dùng viền xám nhẹ
+    background: white;
+    color: #1F2937;
 
     &:hover:not(:disabled) {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      background: #F9FAFB;
     }
 
+    // ✅ Google button - chỉ khác icon
     &.google-btn {
-      border: 1px solid #E5E7EB;
-      background: white;
-      color: #1F2937;
-
-      &:hover {
-        background: #F9FAFB;
-      }
-
       img, svg {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
       }
     }
 
+    // ✅ Facebook button - chỉ khác icon màu xanh
     &.facebook-btn {
-      border: 1px solid #1877F2;
-      background: white;
-      color: #1877F2;
-
-      &:hover {
-        background: #EFF6FF;
-      }
-
       mat-icon {
         color: #1877F2;
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
       }
     }
   }
 
   // Google button container (for Google SDK rendering)
-  .google-button-container {
-    width: 100%;
-    min-height: 48px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.google-button-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  // Override Google SDK styles để match Facebook button
+  ::ng-deep {
+    & > div {
+      width: 100% !important;
+      
+      & > div[role="button"] {
+        // Reset Google styles
+        width: 100% !important;
+        height: 44px !important;
+        border-radius: 8px !important;
+        border: 1px solid #D1D5DB !important;
+        box-shadow: none !important;
+        
+        // Font styles
+        font-family: 'Roboto', sans-serif !important;
+        font-size: 0.875rem !important;
+        font-weight: 500 !important;
+        
+        // Colors
+        background-color: white !important;
+        color: #1F2937 !important;
+        
+        // Padding & alignment
+        padding: 0 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        
+        &:hover {
+          background-color: #F9FAFB !important;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+          border-color: #D1D5DB !important;
+        }
+        
+        &:active {
+          transform: translateY(0);
+        }
+      }
+    }
   }
+}
 }
 
 // ==================== FOOTER LINK ====================
 .auth-footer {
   text-align: center;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
   border-top: 1px solid #E5E7EB;
 
   p {
@@ -319,13 +353,13 @@ $success-green: #10B981;
   display: flex;
   gap: 0.5rem;
   justify-content: center;
-  margin: 2rem 0;
+  margin: 1.75rem 0;
 
   .otp-input {
-    width: 48px;
-    height: 56px;
+    width: 44px;
+    height: 52px;
     text-align: center;
-    font-size: 1.5rem;
+    font-size: 1.375rem;
     font-weight: 600;
     border: 2px solid $border-gray;
     border-radius: 8px;
@@ -397,22 +431,23 @@ $success-green: #10B981;
 // ==================== RESPONSIVE ====================
 @media (max-width: 640px) {
   .auth-card {
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1.25rem;
+    max-width: 360px;
   }
 
   .auth-header {
     .auth-avatar {
-      width: 64px;
-      height: 64px;
+      width: 60px;
+      height: 60px;
 
       svg {
-        width: 36px;
-        height: 36px;
+        width: 34px;
+        height: 34px;
       }
     }
 
     h1 {
-      font-size: 1.5rem;
+      font-size: 1.375rem;
     }
   }
 
@@ -420,8 +455,8 @@ $success-green: #10B981;
     gap: 0.375rem;
 
     .otp-input {
-      width: 40px;
-      height: 48px;
+      width: 38px;
+      height: 46px;
       font-size: 1.25rem;
     }
   }

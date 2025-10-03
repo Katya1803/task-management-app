@@ -37,12 +37,17 @@ export class AuthService {
   readonly isRestoring = computed(() => this._isRestoring());
 
   constructor() {
-    this.restoreSession();
+    // ❌ KHÔNG gọi restoreSession() ngay trong constructor
+    // ✅ Sẽ gọi sau khi app initialized
   }
 
   // ==================== SESSION MANAGEMENT ====================
 
-  private restoreSession(): void {
+  /**
+   * Restore session from refresh token cookie
+   * Should be called AFTER app initialization to avoid circular dependency
+   */
+  restoreSession(): void {
     if (this._isRestoring()) return;
 
     this._isRestoring.set(true);

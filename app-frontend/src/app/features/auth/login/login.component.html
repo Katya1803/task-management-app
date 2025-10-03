@@ -1,3 +1,5 @@
+<!-- File: app-frontend/src/app/features/auth/login/login.component.html -->
+
 <div class="auth-container">
   <div class="auth-card">
 
@@ -12,10 +14,7 @@
         </svg>
       </div>
       <h1>Sign in to Task Manager</h1>
-      <p>
-        Don't have an account?
-        <a routerLink="/auth/register">Sign Up</a>
-      </p>
+      <!-- ✅ BỎ dòng này đi cho clean hơn -->
     </div>
 
     <!-- ==================== ERROR MESSAGE ==================== -->
@@ -26,17 +25,17 @@
       </div>
     }
 
-    <!-- ==================== SOCIAL LOGIN ==================== -->
+    <!-- ==================== SOCIAL LOGIN BUTTONS ==================== -->
     <div class="social-buttons">
-      <!-- Google Sign-In Button (rendered by Google SDK) -->
+      <!-- Google Button - Let Google SDK render it -->
       <div id="google-signin-button" class="google-button-container"></div>
 
-      <!-- Facebook Login Button -->
+      <!-- Facebook Button -->
       <button
         mat-stroked-button
         class="social-btn facebook-btn"
-        [disabled]="loading()"
         (click)="loginWithFacebook()"
+        [disabled]="loading()"
         type="button"
       >
         <mat-icon>facebook</mat-icon>
@@ -86,7 +85,8 @@
           matSuffix
           type="button"
           (click)="togglePasswordVisibility()"
-          [attr.aria-label]="'Toggle password visibility'"
+          [attr.aria-label]="'Hide password'"
+          [attr.aria-pressed]="hidePassword()"
         >
           <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
         </button>
@@ -103,18 +103,19 @@
       <!-- Login Button -->
       <button
         mat-raised-button
-        type="submit"
         class="btn-primary"
-        [disabled]="loading()"
+        type="submit"
+        [disabled]="loading() || loginForm.invalid"
       >
-        @if (!loading()) {
-          <span>Login</span>
-        } @else {
+        @if (loading()) {
           <mat-spinner diameter="24"></mat-spinner>
+        } @else {
+          Login
         }
       </button>
     </form>
 
+    <!-- ==================== FOOTER ==================== -->
     <div class="auth-footer">
       <p>
         New to Task Manager?
