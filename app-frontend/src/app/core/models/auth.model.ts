@@ -1,3 +1,5 @@
+// ==================== USER & AUTH RESPONSE ====================
+
 export interface User {
   publicId: string;
   email: string;
@@ -13,6 +15,8 @@ export interface AuthResponse {
   expiresIn: number;
   user: User;
 }
+
+// ==================== AUTH REQUEST MODELS ====================
 
 export interface RegisterRequest {
   email: string;
@@ -47,6 +51,8 @@ export interface LinkEmailRequest {
   provider: string;
   email: string;
 }
+
+// ==================== JWT ====================
 
 export interface JwtPayload {
   sub: string;

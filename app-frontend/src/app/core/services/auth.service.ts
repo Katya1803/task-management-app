@@ -1,29 +1,46 @@
 import { computed, inject, Injectable, signal } from "@angular/core";
-import { environment } from "../../../environments/environment";
-import { AuthResponse, FacebookLoginRequest, GoogleLoginRequest, JwtPayload, LinkEmailRequest, LoginRequest, RegisterRequest, ResendOtpRequest, User, VerifyOtpRequest } from "../models/auth.model";
 import { HttpClient, HttpErrorResponse } from "@angular/common/http";
-import { catchError, Observable, tap, throwError } from "rxjs";
+import { catchError, map, Observable, tap, throwError } from "rxjs";
 import { jwtDecode } from 'jwt-decode';
 
+import { environment } from "../../../environments/environment";
+import { ApiResponse, MessageResponse, extractData } from "../models/api-response.model";
+import { 
+  AuthResponse, 
+  FacebookLoginRequest, 
+  GoogleLoginRequest, 
+  JwtPayload, 
+  LinkEmailRequest, 
+  LoginRequest, 
+  RegisterRequest, 
+  ResendOtpRequest, 
+  User, 
+  VerifyOtpRequest 
+} from "../models/auth.model";
+
 @Injectable({
-    providedIn: 'root'
+  providedIn: 'root'
 })
 export class AuthService {
-    private readonly API_URL = environment.apiUrl;
-    private http = inject(HttpClient);
+  private readonly API_URL = environment.apiUrl;
+  private http = inject(HttpClient);
 
-    private _accessToken = signal<string | null>(null);
-    private _currentUser = signal<User | null>(null);
-    private _isRestoring = signal<boolean>(false);
+  // ==================== STATE MANAGEMENT ====================
+  private _accessToken = signal<string | null>(null);
+  private _currentUser = signal<User | null>(null);
+  private _isRestoring = signal<boolean>(false);
 
-    readonly accessToken = computed(() => this._accessToken());
-    readonly currentUser = computed(() => this._currentUser());
-    readonly isAuthenticated = computed(() => !!this._accessToken());
-    readonly isRestoring = computed(() => this._isRestoring());
+  // Public readonly signals
+  readonly accessToken = computed(() => this._accessToken());
+  readonly currentUser = computed(() => this._currentUser());
+  readonly isAuthenticated = computed(() => !!this._accessToken());
+  readonly isRestoring = computed(() => this._isRestoring());
 
   constructor() {
     this.restoreSession();
   }
+
+  // ==================== SESSION MANAGEMENT ====================
 
   private restoreSession(): void {
     if (this._isRestoring()) return;
@@ -60,101 +77,142 @@ export class AuthService {
     });
   }
 
-  // ==================== PUBLIC API ====================
+  // ==================== PUBLIC API METHODS ====================
 
-  register(request: RegisterRequest): Observable<{ message: string; email: string }> {
-    return this.http.post<{ message: string; email: string }>(
+  /**
+   * Register a new user with email and password
+   * Sends OTP verification email
+   */
+  register(request: RegisterRequest): Observable<MessageResponse> {
+    return this.http.post<ApiResponse<MessageResponse>>(
       `${this.API_URL}/register`,
       request
     ).pipe(
-      tap(response => console.log('📝 Registration successful:', response.message)),
+      map(response => extractData(response)),
+      tap(data => console.log('📝 Registration successful:', data.message)),
       catchError(this.handleError)
     );
   }
 
-  verifyEmail(request: VerifyOtpRequest): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(
+  /**
+   * Verify email with OTP code
+   */
+  verifyEmail(request: VerifyOtpRequest): Observable<MessageResponse> {
+    return this.http.post<ApiResponse<void>>(
       `${this.API_URL}/verify-email`,
       request
     ).pipe(
-      tap(response => console.log('✅ Email verified:', response.message)),
+      map(response => ({
+        message: response.message
+      })),
+      tap(data => console.log('✅ Email verified:', data.message)),
       catchError(this.handleError)
     );
   }
 
-  resendOtp(request: ResendOtpRequest): Observable<{ message: string; email: string }> {
-    return this.http.post<{ message: string; email: string }>(
+  /**
+   * Request a new OTP code
+   */
+  resendOtp(request: ResendOtpRequest): Observable<MessageResponse> {
+    return this.http.post<ApiResponse<MessageResponse>>(
       `${this.API_URL}/resend-otp`,
       request
     ).pipe(
-      tap(response => console.log('📧 OTP resent:', response.message)),
+      map(response => extractData(response)),
+      tap(data => console.log('📧 OTP resent:', data.message)),
       catchError(this.handleError)
     );
   }
 
+  /**
+   * Login with email and password
+   */
   login(request: LoginRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(
+    return this.http.post<ApiResponse<AuthResponse>>(
       `${this.API_URL}/login`,
       request,
       { withCredentials: true }
     ).pipe(
-      tap(response => this.handleAuthSuccess(response)),
+      map(response => extractData(response)),
+      tap(authResponse => this.handleAuthSuccess(authResponse)),
       catchError(this.handleError)
     );
   }
 
+  /**
+   * Login with Google OAuth2
+   */
   loginWithGoogle(idToken: string): Observable<AuthResponse> {
     const request: GoogleLoginRequest = { idToken };
-    return this.http.post<AuthResponse>(
+    return this.http.post<ApiResponse<AuthResponse>>(
       `${this.API_URL}/google`,
       request,
       { withCredentials: true }
     ).pipe(
-      tap(response => this.handleAuthSuccess(response)),
+      map(response => extractData(response)),
+      tap(authResponse => this.handleAuthSuccess(authResponse)),
       catchError(this.handleError)
     );
   }
 
+  /**
+   * Login with Facebook OAuth2
+   */
   loginWithFacebook(accessToken: string): Observable<AuthResponse> {
     const request: FacebookLoginRequest = { accessToken };
-    return this.http.post<AuthResponse>(
+    return this.http.post<ApiResponse<AuthResponse>>(
       `${this.API_URL}/facebook`,
       request,
       { withCredentials: true }
     ).pipe(
-      tap(response => this.handleAuthSuccess(response)),
+      map(response => extractData(response)),
+      tap(authResponse => this.handleAuthSuccess(authResponse)),
       catchError(this.handleError)
     );
   }
 
+  /**
+   * Link email to existing OAuth2 account
+   */
   linkEmail(request: LinkEmailRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(
+    return this.http.post<ApiResponse<AuthResponse>>(
       `${this.API_URL}/link-email`,
       request,
       { withCredentials: true }
     ).pipe(
-      tap(response => this.handleAuthSuccess(response)),
+      map(response => extractData(response)),
+      tap(authResponse => this.handleAuthSuccess(authResponse)),
       catchError(this.handleError)
     );
   }
 
+  /**
+   * Refresh access token using refresh token cookie
+   */
   refreshToken(): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(
+    return this.http.post<ApiResponse<AuthResponse>>(
       `${this.API_URL}/refresh`,
       {},
       { withCredentials: true }
     ).pipe(
-      tap(response => this.handleAuthSuccess(response)),
+      map(response => extractData(response)),
+      tap(authResponse => this.handleAuthSuccess(authResponse)),
       catchError(this.handleError)
     );
   }
 
-  logout(): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(
+  /**
+   * Logout current user
+   */
+  logout(): Observable<MessageResponse> {
+    return this.http.post<ApiResponse<void>>(
       `${this.API_URL}/logout`,
       {},
       { withCredentials: true }
     ).pipe(
+      map(response => ({
+        message: response.message
+      })),
       tap(() => {
         this.clearAuthState();
         console.log('👋 Logged out successfully');
@@ -181,6 +239,9 @@ export class AuthService {
     return this._isRestoring();
   }
 
+  /**
+   * Decode JWT token
+   */
   private decodeToken(token: string): JwtPayload | null {
     try {
       return jwtDecode<JwtPayload>(token);
@@ -190,6 +251,9 @@ export class AuthService {
     }
   }
 
+  /**
+   * Check if token is expired
+   */
   isTokenExpired(token: string): boolean {
     const decoded = this.decodeToken(token);
     if (!decoded) return true;
@@ -198,19 +262,25 @@ export class AuthService {
     return decoded.exp < currentTime;
   }
 
+  /**
+   * Global error handler for auth service
+   */
   private handleError(error: HttpErrorResponse): Observable<never> {
     let errorMessage = 'An unknown error occurred';
 
     if (error.error instanceof ErrorEvent) {
+      // Client-side error
       errorMessage = `Error: ${error.error.message}`;
     } else {
-      errorMessage = error.error?.message ||
-        error.error?.error ||
-        `Error Code: ${error.status}\nMessage: ${error.message}`;
+      // Server-side error - check if it's ApiResponse format
+      if (error.error?.message) {
+        errorMessage = error.error.message;
+      } else {
+        errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+      }
     }
 
     console.error('❌ Authentication error:', errorMessage);
     return throwError(() => new Error(errorMessage));
   }
-
 }
