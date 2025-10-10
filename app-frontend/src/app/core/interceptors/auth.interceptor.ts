@@ -4,12 +4,12 @@ import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
-
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (isAuthEndpoint(req.url) && !req.url.includes('/refresh')) {
+  // ✅ Skip auth header for auth endpoints (including logout)
+  if (isAuthEndpoint(req.url)) {
     return next(req);
   }
 
@@ -41,7 +41,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
       if (error.status === 403) {
         console.error('❌ Access forbidden');
-        router.navigate(['/dashboard']);
+        router.navigate(['/home']);
         return throwError(() => new Error('Access forbidden'));
       }
 
@@ -49,7 +49,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     })
   );
 };
-
 
 function addToken(req: any, token: string) {
   return req.clone({
@@ -59,7 +58,6 @@ function addToken(req: any, token: string) {
     withCredentials: true  
   });
 }
-
 
 function isAuthEndpoint(url: string): boolean {
   return url.includes('/api/auth/');

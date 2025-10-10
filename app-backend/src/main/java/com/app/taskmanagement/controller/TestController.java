@@ -2,12 +2,11 @@ package com.app.taskmanagement.controller;
 
 import com.app.taskmanagement.constant.ApiPath;
 import com.app.taskmanagement.dto.response.ApiResponse;
-import com.app.taskmanagement.model.User;
+import com.app.taskmanagement.security.UserPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -31,18 +30,20 @@ public class TestController {
     @GetMapping(ApiPath.Test.SECURE)
     public ResponseEntity<ApiResponse<Map<String, Object>>> secureHello() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = "";
-        if (auth.getPrincipal() instanceof User) {
-            username = ((User) auth.getPrincipal()).getFullName();
-        } else {
-            username = auth != null ? auth.getName() : "Anonymous";
+
+        String username = "Anonymous";
+        String email = "N/A";
+
+        if (auth != null && auth.getPrincipal() instanceof UserPrincipal principal) {
+            username = principal.getFullName();
+            email = principal.getEmail();
         }
 
         Map<String, Object> data = Map.of(
                 "message", "Hello " + username + "! You are authenticated!",
+                "email", email,
                 "timestamp", LocalDateTime.now().toString(),
-                "status", "SUCCESS",
-                "user", username
+                "status", "SUCCESS"
         );
         return ResponseEntity.ok(ApiResponse.success("Authenticated request successful", data));
     }

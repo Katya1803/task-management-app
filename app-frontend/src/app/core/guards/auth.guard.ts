@@ -62,8 +62,8 @@ export const guestGuard: CanActivateFn = () => {
     return true;
   }
 
-  console.log('✅ Already authenticated - redirecting to dashboard');
-  router.navigate(['/dashboard']);
+  console.log('✅ Already authenticated - redirecting to home');
+  router.navigate(['/home']);
   return false;
 };
 
@@ -73,7 +73,8 @@ export const roleGuard = (allowedRoles: string[]): CanActivateFn => {
     const authService = inject(AuthService);
     const router = inject(Router);
 
-    const user = authService.getCurrentUser();
+    // ✅ FIX: Use signal instead of method
+    const user = authService.currentUser();
 
     if (!user) {
       console.log('❌ No user found - redirecting to login');
@@ -89,7 +90,7 @@ export const roleGuard = (allowedRoles: string[]): CanActivateFn => {
     }
 
     console.log('❌ Access forbidden - insufficient permissions');
-    router.navigate(['/dashboard']);
+    router.navigate(['/home']);
     return false;
   };
 };

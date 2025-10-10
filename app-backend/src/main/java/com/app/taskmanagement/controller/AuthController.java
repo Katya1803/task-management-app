@@ -93,21 +93,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(authResponse));
     }
 
-    @PostMapping(ApiPath.Auth.LINK_EMAIL)
-    public ResponseEntity<ApiResponse<AuthResponse>> linkEmail(
-            @Valid @RequestBody LinkEmailRequest request,
-            HttpServletRequest httpRequest,
-            HttpServletResponse httpResponse) {
-        AuthResponse authResponse = oauth2Service.linkEmailToProvider(
-                request.getProviderId(),
-                request.getProvider(),
-                request.getEmail(),
-                httpRequest,
-                httpResponse
-        );
-        return ResponseEntity.ok(ApiResponse.success(authResponse));
-    }
-
     @PostMapping(ApiPath.Auth.REFRESH)
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
             HttpServletRequest request,

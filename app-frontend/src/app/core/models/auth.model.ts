@@ -46,11 +46,6 @@ export interface FacebookLoginRequest {
   accessToken: string;
 }
 
-export interface LinkEmailRequest {
-  providerId: string;
-  provider: string;
-  email: string;
-}
 
 // ==================== JWT ====================
 

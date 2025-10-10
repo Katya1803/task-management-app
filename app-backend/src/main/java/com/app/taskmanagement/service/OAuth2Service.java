@@ -15,17 +15,18 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Map;
@@ -62,35 +63,23 @@ public class OAuth2Service {
     @Transactional
     public AuthResponse loginWithGoogle(String idToken, HttpServletRequest request, HttpServletResponse response) {
         OAuth2UserInfo userInfo = verifyGoogleIdToken(idToken);
+
+        if (userInfo.getEmail() == null) {
+            throw new ApplicationException(ErrorCode.EMAIL_REQUIRED_FOR_OAUTH);
+        }
+
         return processOAuth2Login(userInfo, User.AuthProvider.GOOGLE, request, response);
     }
 
     @Transactional
     public AuthResponse loginWithFacebook(String accessToken, HttpServletRequest request, HttpServletResponse response) {
         OAuth2UserInfo userInfo = verifyFacebookAccessToken(accessToken);
+
+        if (userInfo.getEmail() == null) {
+            throw new ApplicationException(ErrorCode.EMAIL_REQUIRED_FOR_OAUTH);
+        }
+
         return processOAuth2Login(userInfo, User.AuthProvider.FACEBOOK, request, response);
-    }
-
-    @Transactional
-    public AuthResponse linkEmailToProvider(String providerId, String provider, String email,
-                                            HttpServletRequest request, HttpServletResponse response) {
-        User.AuthProvider authProvider = User.AuthProvider.valueOf(provider.toUpperCase());
-
-        User user = User.builder()
-                .email(email)
-                .fullName(email.split("@")[0])
-                .role(User.Role.USER)
-                .authProvider(authProvider)
-                .providerId(providerId)
-                .emailVerified(true)
-                .isActive(true)
-                .mfaEnabled(false)
-                .build();
-
-        userRepository.save(user);
-        log.info("Email linked to {} provider: {}", provider, email);
-
-        return generateAuthResponse(user, request, response);
     }
 
     private AuthResponse processOAuth2Login(OAuth2UserInfo userInfo, User.AuthProvider provider,
@@ -103,10 +92,6 @@ public class OAuth2Service {
             userRepository.save(user);
             log.info("OAuth2 user logged in: {}", user.getEmail());
             return generateAuthResponse(user, request, response);
-        }
-
-        if (userInfo.getEmail() == null) {
-            throw new ApplicationException(ErrorCode.EMAIL_REQUIRED_FOR_OAUTH);
         }
 
         Optional<User> userByEmail = userRepository.findByEmail(userInfo.getEmail());
@@ -147,12 +132,15 @@ public class OAuth2Service {
         String accessToken = jwtUtil.generateAccessToken(user);
         String refreshToken = refreshTokenRedisService.createRefreshToken(user, request);
 
-        Cookie cookie = new Cookie(SecurityConstants.REFRESH_TOKEN_COOKIE, refreshToken);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath(SecurityConstants.COOKIE_PATH);
-        cookie.setMaxAge(SecurityConstants.COOKIE_MAX_AGE_SECONDS);
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from(SecurityConstants.REFRESH_TOKEN_COOKIE, refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path(SecurityConstants.COOKIE_PATH)
+                .maxAge(Duration.ofSeconds(SecurityConstants.COOKIE_MAX_AGE_SECONDS))
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader("Set-Cookie", cookie.toString());
 
         UserDto userDto = userMapper.toDto(user);
         return authMapper.toAuthResponse(accessToken, accessTokenExpiration, userDto);
@@ -185,20 +173,41 @@ public class OAuth2Service {
         } catch (ApplicationException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to verify Google ID token", e);
+            log.error("Google token verification failed", e);
             throw new ApplicationException(ErrorCode.OAUTH2_VERIFICATION_FAILED);
         }
     }
 
     private OAuth2UserInfo verifyFacebookAccessToken(String accessToken) {
         try {
-            String url = String.format(
-                    SecurityConstants.FACEBOOK_USER_INFO_URL,
-                    accessToken
+            String debugTokenUrl = String.format(
+                    SecurityConstants.FACEBOOK_DEBUG_TOKEN_URL,
+                    accessToken,
+                    facebookAppId,
+                    facebookAppSecret
             );
 
+            Map<String, Object> debugResponse = webClient.get()
+                    .uri(debugTokenUrl)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+
+            if (debugResponse == null || !debugResponse.containsKey("data")) {
+                throw new ApplicationException(ErrorCode.OAUTH2_VERIFICATION_FAILED);
+            }
+
+            Map<String, Object> data = (Map<String, Object>) debugResponse.get("data");
+            Boolean isValid = (Boolean) data.get("is_valid");
+
+            if (!Boolean.TRUE.equals(isValid)) {
+                throw new ApplicationException(ErrorCode.OAUTH2_VERIFICATION_FAILED);
+            }
+
+            String userInfoUrl = String.format(SecurityConstants.FACEBOOK_USER_INFO_URL, accessToken);
+
             Map<String, Object> userInfo = webClient.get()
-                    .uri(url)
+                    .uri(userInfoUrl)
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
@@ -207,34 +216,18 @@ public class OAuth2Service {
                 throw new ApplicationException(ErrorCode.OAUTH2_VERIFICATION_FAILED);
             }
 
-            String debugUrl = String.format(
-                    SecurityConstants.FACEBOOK_DEBUG_TOKEN_URL,
-                    accessToken, facebookAppId, facebookAppSecret
-            );
-
-            Map<String, Object> debugResponse = webClient.get()
-                    .uri(debugUrl)
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
-                    .block();
-
-            if (debugResponse == null) {
-                throw new ApplicationException(ErrorCode.OAUTH2_VERIFICATION_FAILED);
-            }
-
             return OAuth2UserInfo.builder()
                     .providerId((String) userInfo.get("id"))
                     .email((String) userInfo.get("email"))
                     .fullName((String) userInfo.get("name"))
-                    .emailVerified(true)
+                    .emailVerified(userInfo.get("email") != null)
                     .build();
 
         } catch (ApplicationException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to verify Facebook access token", e);
+            log.error("Facebook token verification failed", e);
             throw new ApplicationException(ErrorCode.OAUTH2_VERIFICATION_FAILED);
         }
     }
-
 }

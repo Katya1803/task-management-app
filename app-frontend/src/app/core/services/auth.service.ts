@@ -10,7 +10,6 @@ import {
   FacebookLoginRequest, 
   GoogleLoginRequest, 
   JwtPayload, 
-  LinkEmailRequest, 
   LoginRequest, 
   RegisterRequest, 
   ResendOtpRequest, 
@@ -83,6 +82,13 @@ export class AuthService {
   }
 
   // ==================== PUBLIC API METHODS ====================
+
+  /**
+   * Get current access token (used by interceptor and components)
+   */
+  getAccessToken(): string | null {
+    return this._accessToken();
+  }
 
   /**
    * Register a new user with email and password
@@ -176,20 +182,7 @@ export class AuthService {
     );
   }
 
-  /**
-   * Link email to existing OAuth2 account
-   */
-  linkEmail(request: LinkEmailRequest): Observable<AuthResponse> {
-    return this.http.post<ApiResponse<AuthResponse>>(
-      `${this.API_URL}/link-email`,
-      request,
-      { withCredentials: true }
-    ).pipe(
-      map(response => extractData(response)),
-      tap(authResponse => this.handleAuthSuccess(authResponse)),
-      catchError(this.handleError)
-    );
-  }
+  // ❌ REMOVED: linkEmail() method - endpoint deleted from backend
 
   /**
    * Refresh access token using refresh token cookie
@@ -226,66 +219,33 @@ export class AuthService {
     );
   }
 
-  // ==================== UTILITY METHODS ====================
+  // ==================== ERROR HANDLING ====================
 
-  getAccessToken(): string | null {
-    return this._accessToken();
-  }
-
-  getCurrentUser(): User | null {
-    return this._currentUser();
-  }
-
-  getIsAuthenticated(): boolean {
-    return this.isAuthenticated();
-  }
-
-  getIsRestoring(): boolean {
-    return this._isRestoring();
-  }
-
-  /**
-   * Decode JWT token
-   */
-  private decodeToken(token: string): JwtPayload | null {
-    try {
-      return jwtDecode<JwtPayload>(token);
-    } catch (error) {
-      console.error('Failed to decode token:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Check if token is expired
-   */
-  isTokenExpired(token: string): boolean {
-    const decoded = this.decodeToken(token);
-    if (!decoded) return true;
-
-    const currentTime = Math.floor(Date.now() / 1000);
-    return decoded.exp < currentTime;
-  }
-
-  /**
-   * Global error handler for auth service
-   */
   private handleError(error: HttpErrorResponse): Observable<never> {
-    let errorMessage = 'An unknown error occurred';
+    let errorMessage = 'An unexpected error occurred';
 
     if (error.error instanceof ErrorEvent) {
       // Client-side error
-      errorMessage = `Error: ${error.error.message}`;
-    } else {
-      // Server-side error - check if it's ApiResponse format
-      if (error.error?.message) {
-        errorMessage = error.error.message;
-      } else {
-        errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
-      }
+      errorMessage = error.error.message;
+    } else if (error.error?.message) {
+      // Server-side error with message
+      errorMessage = error.error.message;
+    } else if (error.status === 0) {
+      errorMessage = 'Unable to connect to server. Please check your internet connection.';
+    } else if (error.status === 401) {
+      errorMessage = 'Authentication failed. Please login again.';
+    } else if (error.status === 403) {
+      errorMessage = 'Access denied. You do not have permission.';
+    } else if (error.status >= 500) {
+      errorMessage = 'Server error. Please try again later.';
     }
 
-    console.error('❌ Authentication error:', errorMessage);
+    console.error('❌ HTTP Error:', {
+      status: error.status,
+      message: errorMessage,
+      error: error.error
+    });
+
     return throwError(() => new Error(errorMessage));
   }
 }

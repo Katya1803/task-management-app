@@ -19,10 +19,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -145,6 +147,16 @@ public class AuthService {
             throw new ApplicationException(ErrorCode.INVALID_TOKEN);
         }
 
+        String currentDeviceId = extractDeviceId(request);
+        String savedDeviceId = (String) tokenData.get("deviceId");
+
+        if (!currentDeviceId.equals(savedDeviceId)) {
+            refreshTokenRedisService.revokeToken(refreshToken);
+            log.warn("Device mismatch detected. Token revoked. Saved: {}, Current: {}",
+                    savedDeviceId, currentDeviceId);
+            throw new ApplicationException(ErrorCode.INVALID_TOKEN);
+        }
+
         Object userIdObj = tokenData.get("userId");
         if (userIdObj == null) {
             throw new ApplicationException(ErrorCode.INVALID_TOKEN);
@@ -183,21 +195,27 @@ public class AuthService {
     }
 
     private void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
-        Cookie cookie = new Cookie(SecurityConstants.REFRESH_TOKEN_COOKIE, refreshToken);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath(SecurityConstants.COOKIE_PATH);
-        cookie.setMaxAge(SecurityConstants.COOKIE_MAX_AGE_SECONDS);
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from(SecurityConstants.REFRESH_TOKEN_COOKIE, refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path(SecurityConstants.COOKIE_PATH)
+                .maxAge(Duration.ofSeconds(SecurityConstants.COOKIE_MAX_AGE_SECONDS))
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     private void clearRefreshTokenCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie(SecurityConstants.REFRESH_TOKEN_COOKIE, "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath(SecurityConstants.COOKIE_PATH);
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from(SecurityConstants.REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .path(SecurityConstants.COOKIE_PATH)
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     private String extractRefreshTokenFromCookie(HttpServletRequest request) {
@@ -210,5 +228,11 @@ public class AuthService {
             }
         }
         return null;
+    }
+
+    private String extractDeviceId(HttpServletRequest request) {
+        String userAgent = request.getHeader("User-Agent");
+        String ipAddress = request.getRemoteAddr();
+        return (userAgent != null ? userAgent : "unknown") + "_" + (ipAddress != null ? ipAddress : "unknown");
     }
 }

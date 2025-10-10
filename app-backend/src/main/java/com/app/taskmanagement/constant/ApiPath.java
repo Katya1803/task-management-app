@@ -21,7 +21,6 @@ public final class ApiPath {
         public static final String LOGIN = "/login";
         public static final String GOOGLE = "/google";
         public static final String FACEBOOK = "/facebook";
-        public static final String LINK_EMAIL = "/link-email";
         public static final String REFRESH = "/refresh";
         public static final String LOGOUT = "/logout";
     }
