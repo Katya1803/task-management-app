@@ -53,6 +53,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/google").permitAll()
                         .requestMatchers("/api/auth/facebook").permitAll()
                         .requestMatchers("/api/auth/refresh").permitAll()
+                        .requestMatchers("/api/auth/logout").permitAll()  // ✅ Allow logout even with expired token
                         .requestMatchers("/api/test/hello").permitAll()
                         .requestMatchers("/api/test/health").permitAll()
                         .anyRequest().authenticated()

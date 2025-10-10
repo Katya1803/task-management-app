@@ -8,8 +8,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // ✅ Skip auth header for auth endpoints (including logout)
-  if (isAuthEndpoint(req.url)) {
+  // ✅ Skip auth header ONLY for public auth endpoints (not logout)
+  if (isPublicAuthEndpoint(req.url)) {
     return next(req);
   }
 
@@ -20,6 +20,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((error: HttpErrorResponse) => {
+      // ✅ Don't retry if logout fails - just let it fail gracefully
+      if (req.url.includes('/logout')) {
+        console.warn('⚠️ Logout failed, but continuing...');
+        return throwError(() => error);
+      }
+
       if (error.status === 401 && !req.url.includes('/refresh')) {
         console.log('🔄 Token expired, attempting refresh...');
         
@@ -59,6 +65,17 @@ function addToken(req: any, token: string) {
   });
 }
 
-function isAuthEndpoint(url: string): boolean {
-  return url.includes('/api/auth/');
+function isPublicAuthEndpoint(url: string): boolean {
+  // ✅ Only skip token for these endpoints
+  const publicEndpoints = [
+    '/api/auth/register',
+    '/api/auth/verify-email',
+    '/api/auth/resend-otp',
+    '/api/auth/login',
+    '/api/auth/google',
+    '/api/auth/facebook',
+    '/api/auth/refresh'
+  ];
+  
+  return publicEndpoints.some(endpoint => url.includes(endpoint));
 }
