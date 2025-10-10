@@ -1,20 +1,367 @@
-.email-avatar {
-  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%) !important;
-
-  mat-icon {
-    font-size: 48px;
-    width: 48px;
-    height: 48px;
+// ==================== ANIMATIONS ====================
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.email-display {
-  font-weight: 600;
-  color: #1976D2 !important;
-  margin-top: 0.5rem;
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
-.countdown {
-  color: #6B7280;
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes progressBar {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+// ==================== EMAIL DISPLAY ====================
+.email-display {
+  display: inline-block;
+  padding: 8px 16px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
   font-weight: 500;
+  font-size: 0.875rem;
+  letter-spacing: 0.3px;
+  animation: fadeIn 0.5s ease-out;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+// ==================== OTP CONTAINER ====================
+.otp-container {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 32px 0;
+  padding: 0 20px;
+  animation: slideUp 0.6s ease-out;
+}
+
+// ==================== OTP INPUT ====================
+.otp-input {
+  width: 56px;
+  height: 64px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 600;
+  border: 2px solid #E5E7EB;
+  border-radius: 12px;
+  background: white;
+  color: #1F2937;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  cursor: text;
+
+  // Remove spinner for number inputs
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &[type=number] {
+    -moz-appearance: textfield;
+  }
+
+  // Hover state
+  &:hover:not(:disabled) {
+    border-color: #CBD5E1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  // Focus state
+  &:focus {
+    border-color: #3B82F6;
+    background: #F8FAFC;
+    box-shadow: 
+      0 0 0 4px rgba(59, 130, 246, 0.1),
+      0 4px 12px rgba(59, 130, 246, 0.2);
+    transform: scale(1.05);
+  }
+
+  // Filled state
+  &.filled {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    transform: scale(1.02);
+
+    &:focus {
+      box-shadow: 
+        0 0 0 4px rgba(102, 126, 234, 0.2),
+        0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+  }
+
+  // Error state
+  &.error {
+    border-color: #EF4444;
+    background: #FEF2F2;
+    animation: shake 0.5s ease-in-out;
+
+    &:focus {
+      box-shadow: 
+        0 0 0 4px rgba(239, 68, 68, 0.1),
+        0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+  }
+
+  // Disabled state
+  &:disabled {
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+    color: #9CA3AF;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+// ==================== SUCCESS STATE ====================
+.otp-input.success {
+  border-color: #10B981;
+  background: #ECFDF5;
+  color: #059669;
+  animation: pulse 0.6s ease-in-out;
+
+  &:focus {
+    box-shadow: 
+      0 0 0 4px rgba(16, 185, 129, 0.1),
+      0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+}
+
+// ==================== RESEND LINK ====================
+.resend-link {
+  margin-top: 24px;
+  text-align: center;
+  animation: fadeIn 0.8s ease-out;
+
+  p {
+    color: #6B7280;
+    font-size: 0.9375rem;
+    margin: 0;
+  }
+
+  a {
+    color: #3B82F6;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    padding: 4px 8px;
+    border-radius: 6px;
+
+    &:hover:not(.disabled) {
+      color: #2563EB;
+      background: #EFF6FF;
+    }
+
+    &.disabled {
+      color: #9CA3AF;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+
+  .countdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+    border-radius: 20px;
+    font-weight: 600;
+    color: #6B7280;
+    font-size: 0.875rem;
+    margin-left: 8px;
+    
+    &::before {
+      content: '⏱️';
+      font-size: 1rem;
+    }
+  }
+}
+
+// ==================== VERIFY BUTTON ENHANCEMENTS ====================
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  margin-top: 8px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+    transition: left 0.5s;
+  }
+
+  &:hover:not(:disabled)::before {
+    left: 100%;
+  }
+
+  mat-spinner {
+    animation: pulse 1s ease-in-out infinite;
+  }
+}
+
+// ==================== ENHANCED ALERTS ====================
+.alert {
+  animation: slideUp 0.4s ease-out;
+  border-left: 4px solid currentColor;
+
+  &.alert-success {
+    background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+    
+    mat-icon {
+      animation: pulse 0.6s ease-in-out;
+    }
+  }
+
+  &.alert-error {
+    animation: shake 0.5s ease-in-out, slideUp 0.4s ease-out;
+  }
+}
+
+// ==================== RESPONSIVE DESIGN ====================
+@media (max-width: 640px) {
+  .otp-container {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .otp-input {
+    width: 48px;
+    height: 56px;
+    font-size: 24px;
+    border-radius: 10px;
+  }
+
+  .email-display {
+    font-size: 0.8125rem;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .otp-container {
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .otp-input {
+    width: 42px;
+    height: 50px;
+    font-size: 20px;
+    border-radius: 8px;
+  }
+}
+
+// ==================== PASTE INDICATOR ====================
+@keyframes pasteFlash {
+  0%, 100% { background: white; }
+  50% { background: #DBEAFE; }
+}
+
+.otp-input.pasted {
+  animation: pasteFlash 0.6s ease-in-out;
+}
+
+// ==================== LOADING STATE ====================
+.otp-input.loading {
+  position: relative;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #E5E7EB;
+    border-top-color: #3B82F6;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// ==================== DARK MODE SUPPORT (OPTIONAL) ====================
+@media (prefers-color-scheme: dark) {
+  .otp-input {
+    background: #1F2937;
+    border-color: #374151;
+    color: #F9FAFB;
+
+    &:hover:not(:disabled) {
+      border-color: #4B5563;
+    }
+
+    &:focus {
+      background: #111827;
+    }
+
+    &.filled {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    &.error {
+      background: #7F1D1D;
+      border-color: #EF4444;
+    }
+
+    &:disabled {
+      background: #111827;
+      border-color: #374151;
+    }
+  }
+
+  .email-display {
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  }
+
+  .countdown {
+    background: linear-gradient(135deg, #374151 0%, #1F2937 100%);
+    color: #D1D5DB;
+  }
 }
